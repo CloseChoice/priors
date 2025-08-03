@@ -1,0 +1,21 @@
+[package]
+name = "priors"
+version = "0.1.0"
+authors = ["Tobias Pitters <tobias@cloudexplain.eu"]
+edition = "2024"
+
+[lib]
+name = "priors"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.25.1", features = ["extension-module", "abi3-py37"] }
+numpy = "0.25.0"
+
+# Optimization settings for release builds
+[profile.release]
+opt-level = 3          # Maximum optimization
+lto = true             # Link-time optimization
+codegen-units = 1      # Better optimization, slower compile
+panic = "abort"        # Smaller binary size
+strip = true           # Remove debug symbols
