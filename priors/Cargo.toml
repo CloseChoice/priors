@@ -11,6 +11,8 @@ crate-type = ["cdylib"]
 [dependencies]
 pyo3 = { version = "0.25.1", features = ["extension-module", "abi3-py37"] }
 numpy = "0.25.0"
+rayon = "1.8"
+once_cell = "1.19"
 
 # Optimization settings for release builds
 [profile.release]
