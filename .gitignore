@@ -1,3 +1,5 @@
 target
 .venv
 __pycache__
+benchmark_results.csv
+benchmark_results.png

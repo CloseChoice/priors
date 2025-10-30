@@ -3,7 +3,7 @@ use numpy::{IntoPyArray, PyArray2, PyArrayMethods, PyReadonlyArray2};
 use pyo3::{pymodule, types::PyModule, Bound, PyResult, Python};
 
 // FP-Growth Modul
-mod fp;
+pub mod fp;  // Public for benchmarks
 use fp::{fp_growth_algorithm, FrequentLevel};
 
 // ============================================================================
