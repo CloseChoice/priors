@@ -6,7 +6,11 @@ edition = "2024"
 
 [lib]
 name = "priors"
-crate-type = ["cdylib", "rlib"]  # rlib for benchmarks and tests
+crate-type = ["cdylib", "rlib"]
+
+[features]
+python = ["pyo3/extension-module"]
+default = []  # rlib for benchmarks and tests
 
 [dependencies]
 pyo3 = { version = "0.25.1", features = ["extension-module", "abi3-py37"] }
@@ -17,6 +21,7 @@ once_cell = "1.19"
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 rand = "0.8"
+ndarray = "0.16"
 
 # Optimization settings for release builds
 [profile.release]
@@ -26,13 +31,12 @@ codegen-units = 1      # Better optimization, slower compile
 panic = "abort"        # Smaller binary size
 strip = true           # Remove debug symbols
 
-# Test binary (not Python extension)
 [[bin]]
-name = "priors_bench"
-path = "benches/fp_growth_bench.rs"
+name = "stress_test"
+path = "benches/stress_test.rs"
 required-features = []
 
-# Benchmark configuration
 [[bench]]
 name = "fp_growth_bench"
 harness = false
+path = "benches/fp_growth_bench.rs"

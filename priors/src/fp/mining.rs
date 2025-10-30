@@ -1,12 +1,22 @@
 use super::builder::{build_conditional_fp_tree, build_fp_tree, get_conditional_frequent_items};
 use super::combinations::generate_combinations_from_path;
+use super::memory::MemoryBudget;
 use super::storage::FrequentLevel;
 use super::tree::FPTree;
 use numpy::ndarray::ArrayView2;
 use rayon::prelude::*;
 
 pub fn fp_growth_algorithm(transactions: ArrayView2<i32>, min_support: f64) -> Vec<FrequentLevel> {
+    fp_growth_with_memory_limit(transactions, min_support, None)
+}
+
+pub fn fp_growth_with_memory_limit(
+    transactions: ArrayView2<i32>,
+    min_support: f64,
+    memory_limit: Option<usize>,
+) -> Vec<FrequentLevel> {
     let num_transactions = transactions.shape()[0];
+    let _budget = memory_limit.map(MemoryBudget::new).unwrap_or(MemoryBudget::unlimited());
 
     let (fp_tree, frequent_items) = build_fp_tree(transactions, min_support);
     let alpha = Vec::new();
