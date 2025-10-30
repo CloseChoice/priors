@@ -25,7 +25,7 @@ impl FPNode {
         }
     }
 
-    pub fn new_item(item: usize, parent: Option<usize>) -> Self {
+    pub fn new_item(item: usize, count: usize, parent: Option<usize>) -> Self {
         Self {
             item: Some(item),
             count,

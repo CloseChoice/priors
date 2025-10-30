@@ -11,7 +11,7 @@ impl FPTree {
                 self.nodes[child_index].count += count;
                 current_index = child_index;
             } else {
-                let new_node = FPNode::new_item(item, Some(current_index));
+                let new_node = FPNode::new_item(item, count, Some(current_index));
                 let new_index = self.nodes.len();
                 self.nodes.push(new_node);
 
@@ -22,7 +22,6 @@ impl FPTree {
                     .or_insert_with(Vec::new)
                     .push(new_index);
 
-                self.nodes[new_index].count += count;
                 current_index = new_index;
             }
         }
@@ -40,7 +39,7 @@ impl FPTree {
                 let mut current_index = node.parent;
 
                 while let Some(idx) = current_index {
-                    let parent_node = &self.nodes[parent_index];
+                    let parent_node = &self.nodes[idx];
                     if let Some(parent_item) = parent_node.item {
                         path.push(parent_item);
                     }
@@ -60,7 +59,7 @@ impl FPTree {
         let mut current_index = self.root_index;
 
         loop {
-            let current_index = &self.nodes[current_index];
+            let current_node = &self.nodes[current_index];
 
             if current_node.children.len() > 1 {
                 return false;

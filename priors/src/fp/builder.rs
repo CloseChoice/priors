@@ -12,7 +12,7 @@ pub fn build_fp_tree(transactions: ArrayView2<i32>, min_support: f64) -> (FPTree
         .enumerate()
         .filter_map(|(idx, &count)| {
             if count as usize >= min_count {
-                Some((item, count as usize))
+                Some((idx, count as usize))
             } else {
                 None
             }

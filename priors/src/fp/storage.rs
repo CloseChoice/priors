@@ -64,7 +64,7 @@ impl FrequentLevel {
     }
 
     pub fn with_capacity(itemset_size: usize, estimated_itemsets: usize) -> Self {
-        let estimated_items = estimated_items * itemset_size;
+        let estimated_items = estimated_itemsets * itemset_size;
         Self {
             storage: ItemsetStorage::with_capacity(estimated_items, estimated_itemsets),
             itemset_size,
@@ -74,6 +74,10 @@ impl FrequentLevel {
     pub fn add_itemset(&mut self, items: Vec<usize>) -> usize {
         debug_assert_eq!(items.len(), self.itemset_size);
         self.storage.add_itemset(items)
+    }
+
+    pub fn len(&self) -> usize {
+        self.storage.len()
     }
 
     pub fn get_itemset(&self, idx: usize) -> &[usize] {
