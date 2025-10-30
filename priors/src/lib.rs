@@ -26,18 +26,21 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
     ///     - Columns represent items
     ///     - Values are 0 (item not present) or 1 (item present)
     ///
-    ///     Example:
-    ///         [[1, 0, 1, 0],  # Transaction 0: items 0 and 2
-    ///          [1, 1, 0, 0],  # Transaction 1: items 0 and 1
-    ///          [0, 1, 1, 1]]  # Transaction 2: items 1, 2, and 3
+    /// Example:
+    ///
+    /// ```text
+    /// [[1, 0, 1, 0],  # Transaction 0: items 0 and 2
+    ///  [1, 1, 0, 0],  # Transaction 1: items 0 and 1
+    ///  [0, 1, 1, 1]]  # Transaction 2: items 1, 2, and 3
+    /// ```
     ///
     /// min_support : float
     ///     Minimum support threshold (between 0.0 and 1.0).
     ///     An itemset is considered frequent if it appears in at least
     ///     (min_support * num_transactions) transactions.
     ///
-    ///     Example: min_support=0.5 means an itemset must appear in at least
-    ///              50% of all transactions.
+    /// Example: min_support=0.5 means an itemset must appear in at least
+    /// 50% of all transactions.
     ///
     /// Returns
     /// -------
@@ -48,7 +51,7 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
     ///     - result[2]: All frequent 3-itemsets
     ///     - etc.
     ///
-    ///     Each array has shape (num_itemsets, itemset_size).
+    /// Each array has shape (num_itemsets, itemset_size).
     ///
     /// Examples
     /// --------

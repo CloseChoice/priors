@@ -13,7 +13,7 @@ python = ["pyo3/extension-module"]
 default = []  # rlib for benchmarks and tests
 
 [dependencies]
-pyo3 = { version = "0.25.1", features = ["extension-module", "abi3-py37"] }
+pyo3 = { version = "0.25.1", features = ["abi3-py37"] }
 numpy = "0.25.0"
 rayon = "1.8"
 once_cell = "1.19"
@@ -35,6 +35,7 @@ strip = true           # Remove debug symbols
 name = "stress_test"
 path = "benches/stress_test.rs"
 required-features = []
+
 
 [[bench]]
 name = "fp_growth_bench"
