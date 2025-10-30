@@ -1,12 +1,12 @@
 use numpy::ndarray::Array2;
 use numpy::{IntoPyArray, PyArray1, PyArray2, PyReadonlyArray2};
-use pyo3::{pymodule, types::PyModule, Bound, PyResult, Python};
+use once_cell::sync::Lazy;
+use pyo3::{Bound, PyResult, Python, pymodule, types::PyModule};
 use std::collections::HashMap;
 use std::sync::Mutex;
-use once_cell::sync::Lazy;
 
 pub mod fp;
-use fp::{fp_growth_algorithm, LazyFPGrowth};
+use fp::{LazyFPGrowth, fp_growth_algorithm};
 
 // ============================================================================
 // PYTHON BINDINGS
@@ -14,78 +14,6 @@ use fp::{fp_growth_algorithm, LazyFPGrowth};
 
 #[pymodule]
 fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
-    /// FP-Growth algorithm Python wrapper
-    ///
-    /// Finds all frequent itemsets in a transactional database using the FP-Growth algorithm.
-    ///
-    /// Parameters
-    /// ----------
-    /// transactions : numpy.ndarray (2D, int32)
-    ///     Binary transaction matrix where:
-    ///     - Rows represent transactions
-    ///     - Columns represent items
-    ///     - Values are 0 (item not present) or 1 (item present)
-    ///
-    /// Example:
-    ///
-    /// ```text
-    /// [[1, 0, 1, 0],  # Transaction 0: items 0 and 2
-    ///  [1, 1, 0, 0],  # Transaction 1: items 0 and 1
-    ///  [0, 1, 1, 1]]  # Transaction 2: items 1, 2, and 3
-    /// ```
-    ///
-    /// min_support : float
-    ///     Minimum support threshold (between 0.0 and 1.0).
-    ///     An itemset is considered frequent if it appears in at least
-    ///     (min_support * num_transactions) transactions.
-    ///
-    /// Example: min_support=0.5 means an itemset must appear in at least
-    /// 50% of all transactions.
-    ///
-    /// Returns
-    /// -------
-    /// list of numpy.ndarray
-    ///     List of frequent itemsets grouped by size:
-    ///     - result[0]: All frequent 1-itemsets (2D array: rows=itemsets, cols=items)
-    ///     - result[1]: All frequent 2-itemsets
-    ///     - result[2]: All frequent 3-itemsets
-    ///     - etc.
-    ///
-    /// Each array has shape (num_itemsets, itemset_size).
-    ///
-    /// Examples
-    /// --------
-    /// >>> import numpy as np
-    /// >>> import priors
-    /// >>>
-    /// >>> # Create transaction data
-    /// >>> transactions = np.array([
-    /// ...     [1, 1, 0, 0, 1],  # Transaction with items A, B, E
-    /// ...     [1, 1, 1, 0, 0],  # Transaction with items A, B, C
-    /// ...     [1, 0, 1, 1, 0],  # Transaction with items A, C, D
-    /// ...     [0, 1, 1, 0, 0],  # Transaction with items B, C
-    /// ... ], dtype=np.int32)
-    /// >>>
-    /// >>> # Find frequent itemsets with 50% minimum support
-    /// >>> result = priors.fp_growth(transactions, min_support=0.5)
-    /// >>>
-    /// >>> # result[0] contains all frequent 1-itemsets
-    /// >>> print("Frequent 1-itemsets:", result[0])
-    /// >>> # result[1] contains all frequent 2-itemsets
-    /// >>> print("Frequent 2-itemsets:", result[1])
-    ///
-    /// Notes
-    /// -----
-    /// The FP-Growth algorithm is more efficient than Apriori for dense datasets
-    /// as it:
-    /// - Uses a compact FP-Tree data structure (prefix tree compression)
-    /// - Avoids explicit candidate generation
-    /// - Employs a divide-and-conquer strategy
-    /// - Parallelizes mining of different items (via Rayon)
-    ///
-    /// Time Complexity: O(|DB| + |F|) where |DB| is database size and |F| is
-    ///                  number of frequent itemsets
-    /// Space Complexity: O(|T|) where |T| is the size of the FP-Tree
     #[pyfn(m)]
     #[pyo3(name = "fp_growth")]
     fn fp_growth_py<'py>(
@@ -143,17 +71,16 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
 
     #[pyfn(m)]
     #[pyo3(name = "lazy_count_pass")]
-    fn lazy_count_pass_py(
-        processor_id: usize,
-        chunk: PyReadonlyArray2<i32>,
-    ) -> PyResult<()> {
+    fn lazy_count_pass_py(processor_id: usize, chunk: PyReadonlyArray2<i32>) -> PyResult<()> {
         let mut processors = LAZY_PROCESSORS.lock().unwrap();
         if let Some(processor) = processors.get_mut(&processor_id) {
             let chunk_view = chunk.as_array();
             processor.count_pass(chunk_view);
             Ok(())
         } else {
-            Err(pyo3::exceptions::PyValueError::new_err("Invalid processor ID"))
+            Err(pyo3::exceptions::PyValueError::new_err(
+                "Invalid processor ID",
+            ))
         }
     }
 
@@ -169,23 +96,24 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
             let frequent_items = processor.finalize_counts(min_support);
             Ok(frequent_items.into_pyarray(py))
         } else {
-            Err(pyo3::exceptions::PyValueError::new_err("Invalid processor ID"))
+            Err(pyo3::exceptions::PyValueError::new_err(
+                "Invalid processor ID",
+            ))
         }
     }
 
     #[pyfn(m)]
     #[pyo3(name = "lazy_build_pass")]
-    fn lazy_build_pass_py(
-        processor_id: usize,
-        chunk: PyReadonlyArray2<i32>,
-    ) -> PyResult<()> {
+    fn lazy_build_pass_py(processor_id: usize, chunk: PyReadonlyArray2<i32>) -> PyResult<()> {
         let mut processors = LAZY_PROCESSORS.lock().unwrap();
         if let Some(processor) = processors.get_mut(&processor_id) {
             let chunk_view = chunk.as_array();
             processor.build_pass(chunk_view);
             Ok(())
         } else {
-            Err(pyo3::exceptions::PyValueError::new_err("Invalid processor ID"))
+            Err(pyo3::exceptions::PyValueError::new_err(
+                "Invalid processor ID",
+            ))
         }
     }
 
@@ -198,7 +126,8 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
     ) -> PyResult<Vec<Bound<'py, PyArray2<usize>>>> {
         let processors = LAZY_PROCESSORS.lock().unwrap();
         if let Some(processor) = processors.get(&processor_id) {
-            let frequent_levels = processor.mine_patterns(min_support)
+            let frequent_levels = processor
+                .mine_patterns(min_support)
                 .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
             let mut result = Vec::new();
@@ -217,14 +146,18 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
                     }
                 }
 
-                let array = Array2::from_shape_vec((num_itemsets, itemset_size), data)
-                    .map_err(|_| pyo3::exceptions::PyValueError::new_err("Failed to create array"))?;
+                let array =
+                    Array2::from_shape_vec((num_itemsets, itemset_size), data).map_err(|_| {
+                        pyo3::exceptions::PyValueError::new_err("Failed to create array")
+                    })?;
 
                 result.push(array.into_pyarray(py));
             }
             Ok(result)
         } else {
-            Err(pyo3::exceptions::PyValueError::new_err("Invalid processor ID"))
+            Err(pyo3::exceptions::PyValueError::new_err(
+                "Invalid processor ID",
+            ))
         }
     }
 
@@ -241,7 +174,9 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
                 stats.tree_nodes,
             ))
         } else {
-            Err(pyo3::exceptions::PyValueError::new_err("Invalid processor ID"))
+            Err(pyo3::exceptions::PyValueError::new_err(
+                "Invalid processor ID",
+            ))
         }
     }
 
