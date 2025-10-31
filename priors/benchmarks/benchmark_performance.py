@@ -10,11 +10,11 @@ import priors
 import time
 from typing import Dict, List, Tuple
 
-# Import shared utilities from parent tests directory
+# Import shared utilities
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent / "tests"))
-from conftest import count_itemsets, generate_transactions
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from utils import count_itemsets, generate_transactions
 
 
 # ============================================================================

@@ -1,4 +1,4 @@
-use numpy::ndarray::Array2;
+use numpy::ndarray::{Array2, s};
 use numpy::{IntoPyArray, PyArray2, PyReadonlyArray2};
 use pyo3::{Bound, PyResult, Python, pymodule, types::PyModule};
 use std::sync::Mutex;
@@ -194,6 +194,84 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
             .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Invalid processor ID"))?;
 
         Ok(())
+    }
+
+    // High-level streaming interface
+    #[pyfn(m)]
+    #[pyo3(name = "fp_growth_streaming", signature = (transactions, min_support, chunk_size=None))]
+    fn fp_growth_streaming_py<'py>(
+        py: Python<'py>,
+        transactions: PyReadonlyArray2<'py, i32>,
+        min_support: f64,
+        chunk_size: Option<usize>,
+    ) -> PyResult<Vec<Bound<'py, PyArray2<usize>>>> {
+        let transactions_view = transactions.as_array();
+        let num_transactions = transactions_view.nrows();
+
+        // Default chunk size: max(1000, num_transactions / 10)
+        let chunk_size = chunk_size.unwrap_or_else(|| {
+            std::cmp::max(1000, num_transactions / 10)
+        });
+
+        // Create a streaming state
+        let mut state = StreamingState::new();
+
+        // Phase 1: Count pass (process in chunks)
+        for start in (0..num_transactions).step_by(chunk_size) {
+            let end = std::cmp::min(start + chunk_size, num_transactions);
+            let chunk = transactions_view.slice(s![start..end, ..]);
+
+            count_pass(&mut state, chunk)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))?;
+        }
+
+        // Phase 2: Finalize counts
+        fp_finalize_counts(&mut state, min_support)
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))?;
+
+        // Phase 3: Build pass (process in chunks)
+        for start in (0..num_transactions).step_by(chunk_size) {
+            let end = std::cmp::min(start + chunk_size, num_transactions);
+            let chunk = transactions_view.slice(s![start..end, ..]);
+
+            build_pass(&mut state, chunk)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))?;
+        }
+
+        // Phase 4: Finalize building
+        fp_finalize_building(&mut state)
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))?;
+
+        // Phase 5: Mine patterns
+        let frequent_levels = mine_patterns(&state, min_support)
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))?;
+
+        // Convert to Python arrays (same as fp_growth)
+        let mut result = Vec::new();
+
+        for level in frequent_levels {
+            if level.len() == 0 {
+                continue;
+            }
+
+            let itemset_size = level.itemset_size;
+            let num_itemsets = level.len();
+            let mut data = vec![0usize; num_itemsets * itemset_size];
+
+            for (i, itemset) in level.iter_itemsets().enumerate() {
+                for (j, &item) in itemset.iter().enumerate() {
+                    data[i * itemset_size + j] = item;
+                }
+            }
+
+            let array = Array2::from_shape_vec((num_itemsets, itemset_size), data)
+                .map_err(|_| pyo3::exceptions::PyValueError::new_err("Failed to create array"))?;
+
+            result.push(array.into_pyarray(py));
+        }
+
+        // No need for explicit cleanup - state is dropped automatically
+        Ok(result)
     }
 
     Ok(())
