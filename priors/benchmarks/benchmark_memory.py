@@ -17,10 +17,15 @@ except ImportError:
     psutil = None
 
 # Import shared utilities
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from utils import count_itemsets, generate_transactions
+try:
+    from utils import count_itemsets, generate_transactions
+except ImportError:
+    # Fallback for when running without package installation
+    import sys
+    from pathlib import Path
+    parent_dir = Path(__file__).parent.parent
+    sys.path.insert(0, str(parent_dir))
+    from utils import count_itemsets, generate_transactions
 
 
 # ============================================================================

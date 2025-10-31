@@ -30,11 +30,7 @@ def run_streaming_fp_growth(transactions, min_support, chunk_size=None):
     Returns:
         Result from streaming FP-Growth
     """
-    # Check if streaming function exists
-    if not hasattr(priors, 'fp_growth_streaming'):
-        pytest.skip("fp_growth_streaming not available")
-
-    # Use the new unified interface
+    # Use the clean unified interface
     return priors.fp_growth_streaming(transactions, min_support, chunk_size=chunk_size)
 
 
