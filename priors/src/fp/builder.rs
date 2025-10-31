@@ -1,22 +1,16 @@
 use super::tree::FPTree;
 use numpy::ndarray::{ArrayView2, Axis};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub fn build_fp_tree(transactions: ArrayView2<i32>, min_support: f64) -> (FPTree, Vec<usize>) {
     let num_transactions = transactions.shape()[0];
     let min_count = (min_support * num_transactions as f64).ceil() as usize;
 
-    let item_counts = transactions.sum_axis(Axis(0));
-    let mut frequent_items: Vec<(usize, usize)> = item_counts
+    let mut frequent_items: Vec<(usize, usize)> = transactions
+        .sum_axis(Axis(0))
         .iter()
         .enumerate()
-        .filter_map(|(idx, &count)| {
-            if count as usize >= min_count {
-                Some((idx, count as usize))
-            } else {
-                None
-            }
-        })
+        .filter_map(|(idx, &count)| (count as usize >= min_count).then_some((idx, count as usize)))
         .collect();
 
     frequent_items.sort_unstable_by(|a, b| b.1.cmp(&a.1));
@@ -24,17 +18,14 @@ pub fn build_fp_tree(transactions: ArrayView2<i32>, min_support: f64) -> (FPTree
     let mut fp_tree = FPTree::new();
 
     for tx_idx in 0..num_transactions {
-        let mut tx_items: Vec<usize> = Vec::new();
-
-        for &item in &ordered_items {
-            if transactions[[tx_idx, item]] != 0 {
-                tx_items.push(item);
-            }
-        }
+        let tx_items: Vec<usize> = ordered_items
+            .iter()
+            .filter(|&&item| transactions[[tx_idx, item]] != 0)
+            .copied()
+            .collect();
 
         if !tx_items.is_empty() {
-            let counts = vec![1; tx_items.len()];
-            fp_tree.insert_transaction(&tx_items, &counts);
+            fp_tree.insert_transaction(&tx_items, &vec![1; tx_items.len()]);
         }
     }
 
@@ -50,13 +41,9 @@ pub fn build_conditional_fp_tree(prefix_paths: &[(Vec<usize>, usize)], min_count
         }
     }
 
-    let frequent_items: Vec<usize> = item_counts
+    let frequent_items: HashSet<usize> = item_counts
         .iter()
-        .filter_map(
-            |(&item, &count)| {
-                if count >= min_count { Some(item) } else { None }
-            },
-        )
+        .filter_map(|(&item, &count)| (count >= min_count).then_some(item))
         .collect();
 
     let mut conditional_tree = FPTree::new();
@@ -64,13 +51,12 @@ pub fn build_conditional_fp_tree(prefix_paths: &[(Vec<usize>, usize)], min_count
     for (path, count) in prefix_paths {
         let filtered_path: Vec<usize> = path
             .iter()
-            .filter(|&&item| frequent_items.contains(&item))
-            .cloned()
+            .copied()
+            .filter(|item| frequent_items.contains(item))
             .collect();
 
         if !filtered_path.is_empty() {
-            let counts = vec![*count; filtered_path.len()];
-            conditional_tree.insert_transaction(&filtered_path, &counts);
+            conditional_tree.insert_transaction(&filtered_path, &vec![*count; filtered_path.len()]);
         }
     }
 
@@ -78,25 +64,15 @@ pub fn build_conditional_fp_tree(prefix_paths: &[(Vec<usize>, usize)], min_count
 }
 
 pub fn get_conditional_frequent_items(tree: &FPTree, min_count: usize) -> Vec<usize> {
-    let mut item_counts: HashMap<usize, usize> = HashMap::new();
-
-    for (&item, node_indices) in &tree.header_table {
-        let total_count: usize = node_indices.iter().map(|&idx| tree.nodes[idx].count).sum();
-        item_counts.insert(item, total_count);
-    }
-
-    let mut frequent_items: Vec<(usize, usize)> = item_counts
+    let mut frequent_items: Vec<(usize, usize)> = tree
+        .header_table
         .iter()
-        .filter_map(|(&item, &count)| {
-            if count >= min_count {
-                Some((item, count))
-            } else {
-                None
-            }
+        .filter_map(|(&item, node_indices)| {
+            let count: usize = node_indices.iter().map(|&idx| tree.nodes[idx].count).sum();
+            (count >= min_count).then_some((item, count))
         })
         .collect();
 
-    frequent_items.sort_by(|a, b| b.1.cmp(&a.1));
-
+    frequent_items.sort_unstable_by(|a, b| b.1.cmp(&a.1));
     frequent_items.into_iter().map(|(item, _)| item).collect()
 }

@@ -2,4 +2,4 @@ pub mod processor;
 pub mod streaming;
 
 pub use processor::LazyFPGrowth;
-pub use streaming::{ChunkProcessor, StreamConfig};
+pub use streaming::StreamConfig;

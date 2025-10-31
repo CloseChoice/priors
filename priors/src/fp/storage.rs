@@ -1,79 +1,46 @@
-/// Memory-efficient itemset storage using flat arrays
 #[derive(Debug, Clone)]
 pub struct ItemsetStorage {
-    items: Vec<usize>,
-    offsets: Vec<(usize, usize)>,
+    pub items: Vec<usize>,
+    pub offsets: Vec<(usize, usize)>,
 }
 
-/// Memory-efficient level storage for frequent itemsets
 #[derive(Debug, Clone)]
 pub struct FrequentLevel {
-    pub(crate) storage: ItemsetStorage,
+    pub storage: ItemsetStorage,
     pub itemset_size: usize,
 }
 
 impl ItemsetStorage {
-    pub fn new() -> Self {
-        Self {
-            items: Vec::new(),
-            offsets: Vec::new(),
-        }
+    pub(crate) fn new() -> Self {
+        Self { items: Vec::new(), offsets: Vec::new() }
     }
 
-    pub fn with_capacity(estimated_items: usize, estimated_itemsets: usize) -> Self {
-        Self {
-            items: Vec::with_capacity(estimated_items),
-            offsets: Vec::with_capacity(estimated_itemsets),
-        }
-    }
-
-    pub fn add_itemset(&mut self, mut items: Vec<usize>) -> usize {
+    pub(crate) fn add_itemset(&mut self, mut items: Vec<usize>) {
         items.sort_unstable();
         items.dedup();
-
-        let start_idx = self.items.len();
-        let length = items.len();
-
+        let start = self.items.len();
         self.items.extend_from_slice(&items);
-        self.offsets.push((start_idx, length));
-
-        self.offsets.len() - 1
+        self.offsets.push((start, items.len()));
     }
 
-    pub fn get_itemset(&self, idx: usize) -> &[usize] {
-        let (start, length) = self.offsets[idx];
-        &self.items[start..start + length]
+    pub(crate) fn get_itemset(&self, idx: usize) -> &[usize] {
+        let (start, len) = self.offsets[idx];
+        &self.items[start..start + len]
     }
 
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.offsets.len()
-    }
-
-    #[allow(dead_code)]
-    pub fn itemset_len(&self, idx: usize) -> usize {
-        self.offsets[idx].1
     }
 }
 
 impl FrequentLevel {
     pub fn new(itemset_size: usize) -> Self {
-        Self {
-            storage: ItemsetStorage::new(),
-            itemset_size,
-        }
-    }
-
-    pub fn with_capacity(itemset_size: usize, estimated_itemsets: usize) -> Self {
-        let estimated_items = estimated_itemsets * itemset_size;
-        Self {
-            storage: ItemsetStorage::with_capacity(estimated_items, estimated_itemsets),
-            itemset_size,
-        }
+        Self { storage: ItemsetStorage::new(), itemset_size }
     }
 
     pub fn add_itemset(&mut self, items: Vec<usize>) -> usize {
-        debug_assert_eq!(items.len(), self.itemset_size);
-        self.storage.add_itemset(items)
+        self.storage.add_itemset(items);
+        self.storage.len() - 1
     }
 
     pub fn len(&self) -> usize {

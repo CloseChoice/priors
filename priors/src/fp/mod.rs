@@ -1,5 +1,4 @@
 pub mod builder;
-pub mod combinations;
 pub mod lazy;
 pub mod memory;
 pub mod mining;
