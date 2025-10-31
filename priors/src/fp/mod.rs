@@ -1,8 +1,6 @@
-pub mod builder;
-pub mod mining;
-pub mod storage;
-pub mod tree;
+pub mod growth;
+pub mod utils;
 
-pub use mining::fp_growth_algorithm;
-pub use storage::{FrequentLevel, ItemsetStorage};
-pub use tree::{FPNode, FPTree};
+pub use growth::fp_growth_algorithm;
+pub use utils::{FrequentLevel, ItemsetStorage};
+pub use growth::{FPNode, FPTree};

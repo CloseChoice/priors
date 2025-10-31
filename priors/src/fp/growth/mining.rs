@@ -1,5 +1,5 @@
 use super::builder::{build_conditional_fp_tree, build_fp_tree, get_conditional_frequent_items};
-use super::storage::FrequentLevel;
+use crate::fp::utils::FrequentLevel;
 use super::tree::FPTree;
 use numpy::ndarray::ArrayView2;
 use rayon::prelude::*;

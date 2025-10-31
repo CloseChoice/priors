@@ -91,9 +91,8 @@ class TestFPGrowthCorrectness:
         assert priors_count > 0, "Priors should find itemsets"
         assert mlxtend_count > 0, "MLxtend should find itemsets"
 
-        # Counts should be similar (within 30% tolerance for different implementations)
-        diff_ratio = abs(priors_count - mlxtend_count) / max(priors_count, mlxtend_count)
-        assert diff_ratio < 0.3, f"Count difference too large: priors={priors_count}, mlxtend={mlxtend_count}"
+        # Both implementations should find exactly the same itemsets
+        assert priors_count == mlxtend_count, f"Count mismatch: priors={priors_count}, mlxtend={mlxtend_count}"
 
     def test_fpgrowth_vs_efficient_apriori_basic(self):
         """Basic correctness test against efficient-apriori."""
@@ -131,9 +130,8 @@ class TestFPGrowthCorrectness:
         assert efficient_count > 0, "Efficient-apriori should find itemsets"
         assert priors_count > 0, "Priors should find itemsets"
 
-        # Counts should be similar (within 30% tolerance)
-        diff_ratio = abs(priors_count - efficient_count) / max(priors_count, efficient_count)
-        assert diff_ratio < 0.3, f"Count difference too large: priors={priors_count}, efficient={efficient_count}"
+        # Both implementations should find exactly the same itemsets
+        assert priors_count == efficient_count, f"Count mismatch: priors={priors_count}, efficient-apriori={efficient_count}"
 
     def test_fpgrowth_vs_mlxtend_medium(self):
         """Test FP-Growth vs mlxtend on medium dataset."""
@@ -158,9 +156,8 @@ class TestFPGrowthCorrectness:
         assert priors_count > 0, "Priors should find itemsets"
         assert mlxtend_count > 0, "MLxtend should find itemsets"
 
-        # Counts should be reasonably close
-        diff_ratio = abs(priors_count - mlxtend_count) / max(priors_count, mlxtend_count)
-        assert diff_ratio < 0.3, f"Count difference too large: priors={priors_count}, mlxtend={mlxtend_count}"
+        # Both implementations should find exactly the same itemsets
+        assert priors_count == mlxtend_count, f"Count mismatch: priors={priors_count}, mlxtend={mlxtend_count}"
 
 
 # ============================================================================

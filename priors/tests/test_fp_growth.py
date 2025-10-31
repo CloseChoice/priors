@@ -29,9 +29,10 @@ def test_fp_growth_vs_mlxtend():
     mlxtend_count = len(mlxtend_result)
     our_count = sum(level.shape[0] for level in our_result)
 
-    assert mlxtend_count > 0
-    assert our_count > 0
-    assert abs(mlxtend_count - our_count) / max(mlxtend_count, our_count) < 0.5
+    assert mlxtend_count > 0, "MLxtend should find itemsets"
+    assert our_count > 0, "Priors should find itemsets"
+    # Both should find exactly the same number of frequent itemsets
+    assert mlxtend_count == our_count, f"Count mismatch: priors={our_count}, mlxtend={mlxtend_count}"
 
 
 def test_fp_growth_vs_efficient_apriori():
@@ -61,9 +62,10 @@ def test_fp_growth_vs_efficient_apriori():
     our_result = priors.fp_growth(transactions_matrix, 0.4)
     our_count = sum(level.shape[0] for level in our_result)
 
-    assert efficient_count > 0
-    assert our_count > 0
-    assert abs(efficient_count - our_count) / max(efficient_count, our_count) < 0.5
+    assert efficient_count > 0, "Efficient-apriori should find itemsets"
+    assert our_count > 0, "Priors should find itemsets"
+    # Both should find exactly the same number of frequent itemsets
+    assert efficient_count == our_count, f"Count mismatch: priors={our_count}, efficient-apriori={efficient_count}"
 
 
 def test_fp_growth_basic():
