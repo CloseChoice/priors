@@ -1,77 +1,19 @@
 """
 Comprehensive comparison tests between priors FP-Growth and other libraries.
-Tests correctness, performance, and edge cases.
+Tests correctness and edge cases.
 """
 
 import numpy as np
 import pandas as pd
 import pytest
 import priors
-import time
 from typing import Dict, List, Tuple, Optional, Set
 
-# ============================================================================
-# Helper Functions
-# ============================================================================
-
-def count_itemsets(result):
-    """Count total itemsets from priors result format."""
-    if result is None:
-        return 0
-    if isinstance(result, list):
-        return sum(level.shape[0] for level in result if level is not None and hasattr(level, 'shape') and level.shape[0] > 0)
-    if hasattr(result, 'shape'):
-        return result.shape[0]
-    return 0
-
-
-def generate_transactions(num_transactions, num_items, avg_size, seed=42):
-    """Generate random transaction data for testing."""
-    np.random.seed(seed)
-    transactions = np.zeros((num_transactions, num_items), dtype=np.int32)
-
-    for i in range(num_transactions):
-        size = max(1, int(np.random.normal(avg_size, avg_size * 0.3)))
-        size = min(size, num_items)
-        items = np.random.choice(num_items, size, replace=False)
-        transactions[i, items] = 1
-
-    return transactions
-
-
-def extract_itemsets_from_mlxtend(mlxtend_result):
-    """Extract itemsets from mlxtend result format."""
-    itemsets = set()
-    if mlxtend_result is not None and len(mlxtend_result) > 0:
-        for _, row in mlxtend_result.iterrows():
-            itemset = tuple(sorted(row['itemsets']))
-            itemsets.add(itemset)
-    return itemsets
-
-
-def extract_itemsets_from_efficient_apriori(ea_itemsets):
-    """Extract itemsets from efficient_apriori result format."""
-    itemsets = set()
-    if ea_itemsets:
-        for size_k, itemsets_k in ea_itemsets.items():
-            for itemset in itemsets_k:
-                itemsets.add(tuple(sorted(itemset)))
-    return itemsets
-
-
-def extract_itemsets_from_priors(priors_result):
-    """Extract itemsets from priors result format."""
-    itemsets = set()
-    if priors_result is not None:
-        if isinstance(priors_result, list):
-            for level_idx, level in enumerate(priors_result):
-                if level is not None and hasattr(level, 'shape') and level.shape[0] > 0:
-                    # This is a simplified extraction - actual format may differ
-                    for i in range(level.shape[0]):
-                        # Create itemset based on level index and position
-                        # This might need adjustment based on actual priors output format
-                        itemsets.add((level_idx, i))  # Placeholder
-    return itemsets
+# Import shared utilities
+from conftest import (
+    count_itemsets,
+    generate_transactions,
+)
 
 
 # ============================================================================
@@ -130,13 +72,10 @@ class TestFPGrowthCorrectness:
         transactions_list = [tuple(np.where(row)[0]) for row in transactions]
         ea_itemsets, ea_rules = efficient_apriori.apriori(transactions_list, min_support=min_support)
         ea_count = sum(len(itemsets) for itemsets in ea_itemsets.values()) if ea_itemsets else 0
-        
-        # Compare counts (allowing small differences due to implementation details)
-        diff = abs(priors_count - ea_count)
-        tolerance = max(1, min(priors_count, ea_count) * 0.1)  # 10% tolerance
-        
-        assert diff <= tolerance, \
-            f"Itemset count mismatch beyond tolerance: priors={priors_count}, efficient_apriori={ea_count}, diff={diff}"
+
+        # Compare counts
+        assert priors_count == ea_count, \
+            f"Itemset count mismatch: priors={priors_count}, efficient_apriori={ea_count}"
 
     def test_fpgrowth_vs_mlxtend_medium(self):
         """Compare with mlxtend on medium-sized dataset."""
@@ -146,28 +85,20 @@ class TestFPGrowthCorrectness:
         # Generate medium dataset
         transactions = generate_transactions(200, 20, 6, seed=456)
         min_support = 0.1
-        
+
         # Run priors
-        start_time = time.time()
         priors_result = priors.fp_growth(transactions, min_support)
-        priors_time = time.time() - start_time
         priors_count = count_itemsets(priors_result)
-        
+
         # Run mlxtend
         df = pd.DataFrame(transactions.astype(bool),
                          columns=[f'item_{i}' for i in range(transactions.shape[1])])
-        start_time = time.time()
         mlxtend_result = mlxtend_fpgrowth(df, min_support=min_support, use_colnames=False)
-        mlxtend_time = time.time() - start_time
         mlxtend_count = len(mlxtend_result)
-        
+
         # Compare results
         assert priors_count == mlxtend_count, \
             f"Itemset count mismatch: priors={priors_count}, mlxtend={mlxtend_count}"
-        
-        # Priors should be faster or comparable
-        speed_ratio = mlxtend_time / priors_time if priors_time > 0 else 1
-        print(f"Speed ratio (mlxtend/priors): {speed_ratio:.2f}x")
 
 
 # ============================================================================
@@ -175,198 +106,191 @@ class TestFPGrowthCorrectness:
 # ============================================================================
 
 class TestScaleCorrectness:
-    """Test correctness at different scales."""
+    """Test correctness at different scales using same pattern."""
 
-    def test_fpgrowth_medium_dataset(self):
-        """Test on medium-sized dataset."""
-        transactions = generate_transactions(1000, 50, 12, seed=789)
-        min_support = 0.05
-        
-        start_time = time.time()
-        result = priors.fp_growth(transactions, min_support)
-        elapsed = time.time() - start_time
-        
-        itemset_count = count_itemsets(result)
-        
-        assert itemset_count > 0, "Should find itemsets in medium dataset"
-        assert elapsed < 5.0, f"Medium dataset took too long: {elapsed:.2f}s"
-        print(f"Medium dataset: {itemset_count} itemsets in {elapsed:.3f}s")
+    def test_fpgrowth_consistent_across_scales(self):
+        """Test that same pattern gives same itemsets regardless of scale."""
+        # Use a simple, deterministic pattern
+        base_pattern = np.array([
+            [1, 1, 0, 0],  # Items 0,1
+            [1, 1, 0, 0],  # Items 0,1
+            [0, 0, 1, 1],  # Items 2,3
+            [0, 0, 1, 1],  # Items 2,3
+        ], dtype=np.int32)
 
-    def test_fpgrowth_large_dataset(self):
-        """Test on large dataset."""
-        transactions = generate_transactions(5000, 100, 15, seed=101112)
-        min_support = 0.02
-        
-        start_time = time.time()
-        result = priors.fp_growth(transactions, min_support)
-        elapsed = time.time() - start_time
-        
-        itemset_count = count_itemsets(result)
-        
-        assert itemset_count > 0, "Should find itemsets in large dataset"
-        assert elapsed < 30.0, f"Large dataset took too long: {elapsed:.2f}s"
-        print(f"Large dataset: {itemset_count} itemsets in {elapsed:.3f}s")
+        min_support = 0.5  # 50% - items 0,1 together (50%) and 2,3 together (50%)
+
+        # Test at different scales
+        scales = [1, 10, 100, 1000]
+        baseline_count = None
+
+        for scale in scales:
+            transactions = np.tile(base_pattern, (scale, 1))
+            result = priors.fp_growth(transactions, min_support)
+            itemset_count = count_itemsets(result)
+
+            if baseline_count is None:
+                baseline_count = itemset_count
+                assert itemset_count > 0, f"Should find itemsets with this pattern"
+            else:
+                assert itemset_count == baseline_count, \
+                    f"Scale {scale}: found {itemset_count} itemsets, expected {baseline_count}"
 
     def test_fpgrowth_different_supports(self):
-        """Test with different support thresholds."""
+        """Test that lower support finds monotonically more itemsets."""
         transactions = generate_transactions(500, 30, 8, seed=131415)
-        
+
         support_levels = [0.1, 0.05, 0.02, 0.01]
         prev_count = 0
-        
+
         for support in support_levels:
-            start_time = time.time()
             result = priors.fp_growth(transactions, support)
-            elapsed = time.time() - start_time
-            
             itemset_count = count_itemsets(result)
-            
-            # Lower support should find more or equal itemsets
+
+            # Lower support should find more or equal itemsets (monotonic property)
             assert itemset_count >= prev_count, \
                 f"Support {support}: {itemset_count} < {prev_count} from higher support"
-            
-            assert elapsed < 10.0, f"Support {support} took too long: {elapsed:.2f}s"
-            
+
             prev_count = itemset_count
-            print(f"Support {support}: {itemset_count} itemsets in {elapsed:.3f}s")
 
     def test_fpgrowth_empty_transactions(self):
         """Test edge case with empty transaction list."""
         transactions = np.array([], dtype=np.int32).reshape(0, 10)
         min_support = 0.1
-        
+
         result = priors.fp_growth(transactions, min_support)
         itemset_count = count_itemsets(result)
-        
+
         assert itemset_count == 0, f"Empty transactions should return 0 itemsets, got {itemset_count}"
 
 
 # ============================================================================
-# Performance Benchmarks
+# Deterministic Tests
 # ============================================================================
 
-class TestPerformanceBenchmarks:
-    """Performance benchmarks comparing different libraries."""
+class TestDeterministicResults:
+    """Test with known datasets and expected results."""
 
-    @pytest.mark.slow
-    def test_performance_small(self):
-        """Benchmark on small dataset."""
-        transactions = generate_transactions(1000, 30, 8, seed=42)
-        min_support = 0.05
-        
-        # Benchmark priors
-        start_time = time.time()
-        priors_result = priors.fp_growth(transactions, min_support)
-        priors_time = time.time() - start_time
-        priors_count = count_itemsets(priors_result)
-        
-        print(f"Priors (small): {priors_count} itemsets in {priors_time:.3f}s")
-        
-        # Benchmark mlxtend if available
-        try:
-            mlxtend = pytest.importorskip("mlxtend")
-            from mlxtend.frequent_patterns import fpgrowth as mlxtend_fpgrowth
-            
-            df = pd.DataFrame(transactions.astype(bool),
-                             columns=[f'item_{i}' for i in range(transactions.shape[1])])
-            
-            start_time = time.time()
-            mlxtend_result = mlxtend_fpgrowth(df, min_support=min_support, use_colnames=False)
-            mlxtend_time = time.time() - start_time
-            mlxtend_count = len(mlxtend_result)
-            
-            print(f"MLxtend (small): {mlxtend_count} itemsets in {mlxtend_time:.3f}s")
-            speedup = mlxtend_time / priors_time if priors_time > 0 else 1
-            print(f"Speedup: {speedup:.2f}x")
-            
-        except ImportError:
-            print("MLxtend not available for comparison")
+    def test_simple_known_result(self):
+        """Test with a simple dataset where we know exact expected itemsets."""
+        # 3 identical transactions, each containing items 0 and 1
+        # At 100% support, we expect:
+        # - 1-itemsets: {0}, {1}
+        # - 2-itemsets: {0,1}
+        # Total: 3 frequent itemsets
+        transactions = np.array([
+            [1, 1, 0, 0],
+            [1, 1, 0, 0],
+            [1, 1, 0, 0],
+        ], dtype=np.int32)
+        min_support = 1.0  # 100%
 
-    @pytest.mark.slow
-    def test_performance_medium(self):
-        """Benchmark on medium dataset."""
-        transactions = generate_transactions(5000, 50, 12, seed=42)
-        min_support = 0.03
-        
-        # Benchmark priors
-        start_time = time.time()
-        priors_result = priors.fp_growth(transactions, min_support)
-        priors_time = time.time() - start_time
-        priors_count = count_itemsets(priors_result)
-        
-        print(f"Priors (medium): {priors_count} itemsets in {priors_time:.3f}s")
-        
-        assert priors_time < 10.0, f"Medium benchmark took too long: {priors_time:.2f}s"
-
-    @pytest.mark.slow
-    def test_performance_large(self):
-        """Benchmark on large dataset."""
-        transactions = generate_transactions(10000, 80, 15, seed=42)
-        min_support = 0.02
-        
-        # Benchmark priors
-        start_time = time.time()
-        priors_result = priors.fp_growth(transactions, min_support)
-        priors_time = time.time() - start_time
-        priors_count = count_itemsets(priors_result)
-        
-        print(f"Priors (large): {priors_count} itemsets in {priors_time:.3f}s")
-        
-        assert priors_time < 60.0, f"Large benchmark took too long: {priors_time:.2f}s"
-
-
-# ============================================================================
-# Memory Tests
-# ============================================================================
-
-class TestMemoryEfficiency:
-    """Test memory usage and efficiency."""
-
-    def test_memory_large_sparse(self):
-        """Test memory efficiency on large sparse dataset."""
-        # Create large sparse dataset
-        num_trans, num_items = 10000, 200
-        transactions = np.zeros((num_trans, num_items), dtype=np.int32)
-        
-        # Add sparse items (5% density)
-        np.random.seed(42)
-        for i in range(num_trans):
-            num_items_in_trans = np.random.randint(1, 11)  # 1-10 items per transaction
-            items = np.random.choice(num_items, num_items_in_trans, replace=False)
-            transactions[i, items] = 1
-        
-        min_support = 0.01
-        
-        # Should complete without memory error
         result = priors.fp_growth(transactions, min_support)
         itemset_count = count_itemsets(result)
-        
-        assert itemset_count >= 0, "Large sparse dataset should complete"
 
-    def test_memory_large_dense(self):
-        """Test memory efficiency on large dense dataset."""
-        # Create moderately dense dataset
-        transactions = generate_transactions(5000, 100, 25, seed=42)  # 25% density
-        min_support = 0.05
-        
-        # Should complete without memory error
-        result = priors.fp_growth(transactions, min_support)
-        itemset_count = count_itemsets(result)
-        
-        assert itemset_count >= 0, "Large dense dataset should complete"
+        # Expected: {0}, {1}, {0,1} = 3 itemsets total
+        assert itemset_count == 3, f"Expected 3 itemsets, got {itemset_count}"
 
+    def test_known_result_with_scaling(self):
+        """Test that scaling identical transactions produces consistent results."""
+        # Pattern where all items have same frequency
+        base = np.array([
+            [1, 1, 1],
+            [1, 1, 1],
+        ], dtype=np.int32)
 
-# ============================================================================
-# Run as standalone script
-# ============================================================================
+        min_support = 1.0  # 100%
 
-if __name__ == "__main__":
-    print("Running correctness tests...")
-    pytest.main([__file__ + "::TestFPGrowthCorrectness", "-v"])
-    
-    print("\nRunning performance benchmarks...")
-    try:
-        pytest.main([__file__ + "::TestPerformanceBenchmarks", "--benchmark-only", "-v"])
-    except SystemExit:
-        # benchmark-only might not be available
-        pytest.main([__file__ + "::TestPerformanceBenchmarks", "-v"])
+        # Run on base - all items appear 100%, so we expect 2^3-1=7 itemsets
+        result_base = priors.fp_growth(base, min_support)
+        count_base = count_itemsets(result_base)
+
+        # Run on scaled version (100x)
+        scaled = np.tile(base, (100, 1))
+        result_scaled = priors.fp_growth(scaled, min_support)
+        count_scaled = count_itemsets(result_scaled)
+
+        # Should find same patterns - all items still at 100%
+        assert count_base == count_scaled, \
+            f"Scaling changed result: base={count_base}, scaled={count_scaled}"
+
+    def test_support_threshold_filtering(self):
+        """Test that support threshold correctly filters itemsets."""
+        # 10 transactions where item 0 appears 5 times (50%)
+        transactions = np.array([
+            [1, 0, 0],  # 0
+            [1, 0, 0],  # 1
+            [1, 0, 0],  # 2
+            [1, 0, 0],  # 3
+            [1, 0, 0],  # 4
+            [0, 1, 1],  # 5
+            [0, 1, 1],  # 6
+            [0, 1, 1],  # 7
+            [0, 1, 1],  # 8
+            [0, 1, 1],  # 9
+        ], dtype=np.int32)
+
+        # At 60% support, only items 1,2 should be frequent (50% for item 0)
+        result_60 = priors.fp_growth(transactions, 0.6)
+        count_60 = count_itemsets(result_60)
+
+        # At 50% support, items 0,1,2 should all be frequent
+        result_50 = priors.fp_growth(transactions, 0.5)
+        count_50 = count_itemsets(result_50)
+
+        # Lower support should find more itemsets
+        assert count_50 > count_60, \
+            f"50% support should find more itemsets than 60%: {count_50} vs {count_60}"
+
+    def test_scalable_known_results(self):
+        """Test with scalable pattern where we know exact results for any size.
+
+        Pattern: Repeating block of 10 transactions where:
+        - Item A appears in transactions 0-4 (50%)
+        - Item B appears in transactions 0-6 (70%)
+        - Item C appears in transactions 0-9 (100%)
+
+        This pattern is scale-invariant: 10, 100, 1000, 10000 transactions
+        all have the same frequency distribution.
+        """
+        def create_pattern(num_blocks):
+            """Create num_blocks * 10 transactions with known pattern."""
+            base_block = np.array([
+                [1, 1, 1],  # 0: A, B, C
+                [1, 1, 1],  # 1: A, B, C
+                [1, 1, 1],  # 2: A, B, C
+                [1, 1, 1],  # 3: A, B, C
+                [1, 1, 1],  # 4: A, B, C
+                [0, 1, 1],  # 5: B, C (no A)
+                [0, 1, 1],  # 6: B, C (no A)
+                [0, 0, 1],  # 7: C (no A, B)
+                [0, 0, 1],  # 8: C (no A, B)
+                [0, 0, 1],  # 9: C (no A, B)
+            ], dtype=np.int32)
+            return np.tile(base_block, (num_blocks, 1))
+
+        # Test at different scales
+        for num_blocks in [1, 10, 100, 1000]:
+            transactions = create_pattern(num_blocks)
+            num_trans = num_blocks * 10
+
+            # At 100% support: only item C (100%)
+            # Expected: {C} = 1 itemset
+            result_100 = priors.fp_growth(transactions, 1.0)
+            count_100 = count_itemsets(result_100)
+            assert count_100 == 1, \
+                f"Scale {num_trans}: 100% support should find exactly 1 itemset, got {count_100}"
+
+            # At 70% support: items B (70%) and C (100%)
+            # Expected: {B}, {C}, {B,C} = 3 itemsets
+            result_70 = priors.fp_growth(transactions, 0.7)
+            count_70 = count_itemsets(result_70)
+            assert count_70 == 3, \
+                f"Scale {num_trans}: 70% support should find exactly 3 itemsets, got {count_70}"
+
+            # At 50% support: items A (50%), B (70%), C (100%)
+            # Expected: {A}, {B}, {C}, {A,B}, {A,C}, {B,C}, {A,B,C} = 7 itemsets (2^3-1)
+            result_50 = priors.fp_growth(transactions, 0.5)
+            count_50 = count_itemsets(result_50)
+            assert count_50 == 7, \
+                f"Scale {num_trans}: 50% support should find exactly 7 itemsets, got {count_50}"

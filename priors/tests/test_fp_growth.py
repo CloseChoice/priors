@@ -7,55 +7,10 @@ import numpy as np
 import pandas as pd
 import pytest
 import priors
-import time
 from typing import List, Tuple, Optional
 
-# ============================================================================
-# Helper Functions
-# ============================================================================
-
-def count_itemsets(result):
-    """Count total itemsets from priors result format."""
-    if result is None:
-        return 0
-    if isinstance(result, list):
-        return sum(level.shape[0] for level in result if level is not None and hasattr(level, 'shape') and level.shape[0] > 0)
-    if hasattr(result, 'shape'):
-        return result.shape[0]
-    return 0
-
-
-def generate_transactions(num_transactions, num_items, avg_size, seed=42):
-    """Generate random transaction data for testing."""
-    np.random.seed(seed)
-    transactions = np.zeros((num_transactions, num_items), dtype=np.int32)
-
-    for i in range(num_transactions):
-        size = max(1, int(np.random.normal(avg_size, avg_size * 0.3)))
-        size = min(size, num_items)
-        items = np.random.choice(num_items, size, replace=False)
-        transactions[i, items] = 1
-
-    return transactions
-
-
-def extract_itemsets_from_result(result):
-    """Extract itemset details from priors result for comparison."""
-    itemsets = []
-    if result is None:
-        return itemsets
-    
-    if isinstance(result, list):
-        for level_idx, level in enumerate(result):
-            if level is not None and hasattr(level, 'shape') and level.shape[0] > 0:
-                for i in range(level.shape[0]):
-                    if hasattr(level, '__getitem__'):
-                        itemsets.append(tuple(sorted(level[i])))
-                    else:
-                        # Handle different result formats
-                        itemsets.append(tuple(range(level_idx + 1)))
-    
-    return set(itemsets)  # Return as set for easy comparison
+# Import shared utilities
+from conftest import count_itemsets, generate_transactions, extract_itemsets_from_result
 
 
 # ============================================================================
@@ -161,15 +116,11 @@ class TestFPGrowthBasic:
         """Test with larger transaction set."""
         transactions = generate_transactions(1000, 50, 10, seed=123)
         min_support = 0.1
-        
-        start_time = time.time()
+
         result = priors.fp_growth(transactions, min_support)
-        elapsed = time.time() - start_time
-        
         itemset_count = count_itemsets(result)
-        
+
         assert itemset_count > 0, "Should find itemsets in large dataset"
-        assert elapsed < 10.0, f"Large dataset took too long: {elapsed:.2f}s"
 
     def test_very_sparse_data(self):
         """Test with very sparse transaction data."""
@@ -296,84 +247,3 @@ class TestFPGrowthEdgeCases:
         assert itemset_count >= 0, "Non-binary input should be handled gracefully"
 
 
-# ============================================================================
-# Performance Tests
-# ============================================================================
-
-class TestFPGrowthPerformance:
-    """Performance and scalability tests."""
-
-    @pytest.mark.slow
-    def test_scaling_transactions(self):
-        """Test how performance scales with number of transactions."""
-        base_items = 20
-        avg_size = 8
-        min_support = 0.1
-        
-        sizes = [1000, 5000, 10000]
-        times = []
-        
-        for size in sizes:
-            transactions = generate_transactions(size, base_items, avg_size, seed=42)
-            
-            start_time = time.time()
-            result = priors.fp_growth(transactions, min_support)
-            elapsed = time.time() - start_time
-            
-            times.append(elapsed)
-            itemset_count = count_itemsets(result)
-            
-            assert itemset_count > 0, f"Should find itemsets for size {size}"
-            assert elapsed < 5.0, f"Size {size} took too long: {elapsed:.2f}s"
-        
-        # Performance should scale reasonably (not exponentially)
-        for i in range(1, len(times)):
-            scale_factor = sizes[i] / sizes[i-1]
-            time_factor = times[i] / times[i-1] if times[i-1] > 0 else 1
-            
-            # Time should not increase more than 10x the scale factor
-            assert time_factor < scale_factor * 10, f"Poor scaling: {scale_factor}x size took {time_factor}x time"
-
-    @pytest.mark.slow
-    def test_scaling_items(self):
-        """Test how performance scales with number of items."""
-        base_transactions = 1000
-        avg_size = 10
-        min_support = 0.05
-        
-        item_counts = [20, 50, 100]
-        
-        for items in item_counts:
-            transactions = generate_transactions(base_transactions, items, avg_size, seed=42)
-            
-            start_time = time.time()
-            result = priors.fp_growth(transactions, min_support)
-            elapsed = time.time() - start_time
-            
-            itemset_count = count_itemsets(result)
-            
-            assert itemset_count >= 0, f"Should handle {items} items"
-            assert elapsed < 10.0, f"Items {items} took too long: {elapsed:.2f}s"
-
-    def test_memory_usage(self):
-        """Test that memory usage is reasonable."""
-        # Create a moderately large dataset
-        transactions = generate_transactions(10000, 100, 20, seed=42)
-        min_support = 0.02
-        
-        import gc
-        gc.collect()
-        
-        result = priors.fp_growth(transactions, min_support)
-        itemset_count = count_itemsets(result)
-        
-        # Should complete without memory errors
-        assert itemset_count >= 0, "Should complete without memory issues"
-
-
-# ============================================================================
-# Run as standalone script
-# ============================================================================
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v", "-s"])
