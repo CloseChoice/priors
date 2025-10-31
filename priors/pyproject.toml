@@ -14,3 +14,8 @@ dev = ["maturin>=1.0,<2.0",
        "numpy",
        ]
 benchmarks = ["mlxtend", "efficient-apriori", "pytest-benchmarks"]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
