@@ -31,13 +31,3 @@ codegen-units = 1      # Better optimization, slower compile
 panic = "abort"        # Smaller binary size
 strip = true           # Remove debug symbols
 
-[[bin]]
-name = "stress_test"
-path = "benches/stress_test.rs"
-required-features = []
-
-
-[[bench]]
-name = "fp_growth_bench"
-harness = false
-path = "benches/fp_growth_bench.rs"
