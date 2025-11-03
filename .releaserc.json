@@ -1,5 +1,5 @@
 {
-  "branches": ["main"],
+  "branches": ["main", "feat/ci-pipeline-4"],
   "plugins": [
     [
       "@semantic-release/commit-analyzer",
