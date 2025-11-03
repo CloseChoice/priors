@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/CloseChoice/priors/compare/v1.0.0...v1.0.1) (2025-11-03)
+
+
+### Bug Fixes
+
+* python build ([8138c6c](https://github.com/CloseChoice/priors/commit/8138c6c72ea8ef7362b0a6a0e08c46ef1b617d8d))
+
 # 1.0.0 (2025-11-03)
 
 
