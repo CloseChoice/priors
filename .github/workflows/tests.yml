@@ -50,7 +50,7 @@ jobs:
         run: |
           source .venv/bin/activate
           cd priors
-          pytest tests/test_comparison.py -v --cov=. --cov-report=term --cov-report=xml --cov-report=html
+          pytest tests/test_comparison.py tests/test_fp_growth.py tests/test_streaming.py -v --cov=. --cov-report=term --cov-report=xml --cov-report=html
         continue-on-error: true
 
       - name: Generate coverage report
@@ -62,15 +62,41 @@ jobs:
           coverage_percent=$(python -c "print(f'{float('$coverage_percent') * 100:.2f}')")
           echo "coverage=$coverage_percent" >> $GITHUB_OUTPUT
 
+          # Run pytest and capture results
+          test_output=$(pytest tests/test_comparison.py tests/test_fp_growth.py tests/test_streaming.py -v --tb=line 2>&1 || true)
+
+          # Extract test statistics
+          passed=$(echo "$test_output" | grep -oP '\d+(?= passed)' | tail -1 || echo "0")
+          failed=$(echo "$test_output" | grep -oP '\d+(?= failed)' | tail -1 || echo "0")
+          total=$((passed + failed))
+
+          # Create badges
+          if [ "$failed" -eq 0 ]; then
+            test_badge="✅ All tests passed"
+          else
+            test_badge="❌ $failed test(s) failed"
+          fi
+
           # Create summary
-          echo "## Test Results" > test_summary.md
+          echo "## 🧪 Test Results" > test_summary.md
           echo "" >> test_summary.md
-          echo "**Coverage:** ${coverage_percent}%" >> test_summary.md
+          echo "| Metric | Value |" >> test_summary.md
+          echo "|--------|-------|" >> test_summary.md
+          echo "| Status | $test_badge |" >> test_summary.md
+          echo "| Coverage | ${coverage_percent}% |" >> test_summary.md
+          echo "| Tests Passed | $passed / $total |" >> test_summary.md
           echo "" >> test_summary.md
-          echo "### Test Output" >> test_summary.md
-          echo '```' >> test_summary.md
-          pytest tests/test_comparison.py -v --tb=short 2>&1 | tail -n 50 >> test_summary.md || true
-          echo '```' >> test_summary.md
+
+          # Add failure details if any
+          if [ "$failed" -gt 0 ]; then
+            echo "<details>" >> test_summary.md
+            echo "<summary>❌ View Failures</summary>" >> test_summary.md
+            echo "" >> test_summary.md
+            echo '```' >> test_summary.md
+            echo "$test_output" | grep -A 10 "FAILED" >> test_summary.md
+            echo '```' >> test_summary.md
+            echo "</details>" >> test_summary.md
+          fi
 
       - name: Comment PR with test results
         if: github.event_name == 'pull_request'
