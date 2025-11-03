@@ -162,8 +162,15 @@ fn fp_growth_recursive(
             while merged.len() < size {
                 merged.push(FrequentLevel::new(merged.len() + 1));
             }
+
+            // Adjust offsets when merging
+            let current_len = merged[size - 1].storage.items.len();
             merged[size - 1].storage.items.extend_from_slice(&level.storage.items);
-            merged[size - 1].storage.offsets.extend_from_slice(&level.storage.offsets);
+
+            // Adjust each offset by the current length of the merged items array
+            for (start, len) in level.storage.offsets {
+                merged[size - 1].storage.offsets.push((current_len + start, len));
+            }
         }
     }
     merged
