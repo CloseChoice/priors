@@ -25,13 +25,19 @@ def count_itemsets(result):
     if isinstance(result, tuple) and len(result) == 2:
         itemsets_list, _ = result
         if isinstance(itemsets_list, list):
-            return sum(level.shape[0] for level in itemsets_list
-                      if level is not None and hasattr(level, 'shape') and level.shape[0] > 0)
+            return sum(
+                level.shape[0]
+                for level in itemsets_list
+                if level is not None and hasattr(level, "shape") and level.shape[0] > 0
+            )
     # Handle old list format
     if isinstance(result, list):
-        return sum(level.shape[0] for level in result
-                  if level is not None and hasattr(level, 'shape') and level.shape[0] > 0)
-    if hasattr(result, 'shape'):
+        return sum(
+            level.shape[0]
+            for level in result
+            if level is not None and hasattr(level, "shape") and level.shape[0] > 0
+        )
+    if hasattr(result, "shape"):
         return result.shape[0]
     return 0
 
@@ -88,7 +94,7 @@ def extract_itemsets_from_mlxtend(mlxtend_result):
     itemsets = set()
     if mlxtend_result is not None and len(mlxtend_result) > 0:
         for _, row in mlxtend_result.iterrows():
-            itemset = tuple(sorted(row['itemsets']))
+            itemset = tuple(sorted(row["itemsets"]))
             itemsets.add(itemset)
     return itemsets
 
@@ -125,7 +131,7 @@ def extract_itemsets_from_priors(priors_result):
     if priors_result is not None:
         if isinstance(priors_result, list):
             for level_idx, level in enumerate(priors_result):
-                if level is not None and hasattr(level, 'shape') and level.shape[0] > 0:
+                if level is not None and hasattr(level, "shape") and level.shape[0] > 0:
                     for i in range(level.shape[0]):
                         itemsets.add((level_idx, i))
     return itemsets
@@ -147,9 +153,9 @@ def extract_itemsets_from_result(result):
 
     if isinstance(result, list):
         for level_idx, level in enumerate(result):
-            if level is not None and hasattr(level, 'shape') and level.shape[0] > 0:
+            if level is not None and hasattr(level, "shape") and level.shape[0] > 0:
                 for i in range(level.shape[0]):
-                    if hasattr(level, '__getitem__'):
+                    if hasattr(level, "__getitem__"):
                         itemsets.append(tuple(sorted(level[i])))
                     else:
                         itemsets.append(tuple(range(level_idx + 1)))
@@ -179,16 +185,13 @@ def fp_growth_to_dataframe(itemsets_list, supports_list, num_transactions):
             all_itemsets.append(itemset)
             all_supports.append(support)
 
-    df = pd.DataFrame({
-        'support': all_supports,
-        'itemsets': all_itemsets
-    })
+    df = pd.DataFrame({"support": all_supports, "itemsets": all_itemsets})
 
     # Sort by support descending, then by length, then by sorted tuple representation
     # This matches mlxtend's ordering
-    df['_len'] = df['itemsets'].apply(len)
-    df['_sorted'] = df['itemsets'].apply(lambda x: tuple(sorted(x)))
-    df = df.sort_values(['support', '_len', '_sorted'], ascending=[False, True, True])
-    df = df.drop(columns=['_len', '_sorted']).reset_index(drop=True)
+    df["_len"] = df["itemsets"].apply(len)
+    df["_sorted"] = df["itemsets"].apply(lambda x: tuple(sorted(x)))
+    df = df.sort_values(["support", "_len", "_sorted"], ascending=[False, True, True])
+    df = df.drop(columns=["_len", "_sorted"]).reset_index(drop=True)
 
     return df

@@ -3,23 +3,25 @@ Performance benchmarks comparing priors FP-Growth with other libraries.
 Run with pytest-benchmark or as standalone script.
 """
 
+# Import shared utilities
+import sys
+import time
+from pathlib import Path
+from typing import Dict, List, Tuple
+
 import numpy as np
 import pandas as pd
 import pytest
-import priors
-import time
-from typing import Dict, List, Tuple
 
-# Import shared utilities
-import sys
-from pathlib import Path
+import priors
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils import count_itemsets, generate_transactions
-
 
 # ============================================================================
 # Performance Benchmarks
 # ============================================================================
+
 
 class TestPerformanceBenchmarks:
     """Performance benchmarks comparing different libraries."""
@@ -43,11 +45,15 @@ class TestPerformanceBenchmarks:
             mlxtend = pytest.importorskip("mlxtend")
             from mlxtend.frequent_patterns import fpgrowth as mlxtend_fpgrowth
 
-            df = pd.DataFrame(transactions.astype(bool),
-                             columns=[f'item_{i}' for i in range(transactions.shape[1])])
+            df = pd.DataFrame(
+                transactions.astype(bool),
+                columns=[f"item_{i}" for i in range(transactions.shape[1])],
+            )
 
             start_time = time.time()
-            mlxtend_result = mlxtend_fpgrowth(df, min_support=min_support, use_colnames=False)
+            mlxtend_result = mlxtend_fpgrowth(
+                df, min_support=min_support, use_colnames=False
+            )
             mlxtend_time = time.time() - start_time
             mlxtend_count = len(mlxtend_result)
 
@@ -110,9 +116,11 @@ class TestPerformanceBenchmarks:
 
         # Report scaling
         for i in range(1, len(times)):
-            scale_factor = sizes[i] / sizes[i-1]
-            time_factor = times[i] / times[i-1] if times[i-1] > 0 else 1
-            print(f"Scale {sizes[i-1]} -> {sizes[i]}: {scale_factor}x size took {time_factor:.2f}x time")
+            scale_factor = sizes[i] / sizes[i - 1]
+            time_factor = times[i] / times[i - 1] if times[i - 1] > 0 else 1
+            print(
+                f"Scale {sizes[i-1]} -> {sizes[i]}: {scale_factor}x size took {time_factor:.2f}x time"
+            )
 
     @pytest.mark.slow
     def test_scaling_items(self):
@@ -124,7 +132,9 @@ class TestPerformanceBenchmarks:
         item_counts = [20, 50, 100]
 
         for items in item_counts:
-            transactions = generate_transactions(base_transactions, items, avg_size, seed=42)
+            transactions = generate_transactions(
+                base_transactions, items, avg_size, seed=42
+            )
 
             start_time = time.time()
             result = priors.fp_growth(transactions, min_support)
@@ -142,31 +152,43 @@ class TestPerformanceBenchmarks:
 speed_benchmark_results = []
 
 
-def add_speed_benchmark(dataset_size: str, mlxtend_time: str, efficient_apriori_time: str,
-                       priors_time: float, speedup: str):
+def add_speed_benchmark(
+    dataset_size: str,
+    mlxtend_time: str,
+    efficient_apriori_time: str,
+    priors_time: float,
+    speedup: str,
+):
     """Add speed benchmark result."""
-    speed_benchmark_results.append({
-        'Dataset Size': dataset_size,
-        'MLxtend': mlxtend_time,
-        'Efficient-Apriori': efficient_apriori_time,
-        'Priors FP-Growth': f"{priors_time:.2f}s",
-        'Speedup': speedup
-    })
+    speed_benchmark_results.append(
+        {
+            "Dataset Size": dataset_size,
+            "MLxtend": mlxtend_time,
+            "Efficient-Apriori": efficient_apriori_time,
+            "Priors FP-Growth": f"{priors_time:.2f}s",
+            "Speedup": speedup,
+        }
+    )
 
 
 class TestSpeedBenchmarks:
     """Benchmarks for speed comparison: Regular FP-Growth vs others."""
 
-    @pytest.mark.parametrize("num_trans,num_items,avg_size,min_support", [
-        (10000, 50, 10, 0.05),
-        (50000, 80, 15, 0.03),
-        (100000, 100, 20, 0.02),
-        (200000, 100, 25, 0.01),
-    ])
+    @pytest.mark.parametrize(
+        "num_trans,num_items,avg_size,min_support",
+        [
+            (10000, 50, 10, 0.05),
+            (50000, 80, 15, 0.03),
+            (100000, 100, 20, 0.02),
+            (200000, 100, 25, 0.01),
+        ],
+    )
     def test_speed_comparison(self, num_trans, num_items, avg_size, min_support):
         """Compare execution times across libraries."""
         transactions = generate_transactions(num_trans, num_items, avg_size, seed=42)
-        df = pd.DataFrame(transactions.astype(bool), columns=[f'i{i}' for i in range(num_items)])
+        df = pd.DataFrame(
+            transactions.astype(bool), columns=[f"i{i}" for i in range(num_items)]
+        )
         dataset_size = f"{num_trans//1000}K × {num_items}"
 
         # Priors FP-Growth
@@ -179,9 +201,13 @@ class TestSpeedBenchmarks:
         try:
             if num_trans <= 50000:  # Avoid OOM on larger datasets
                 mlxtend = pytest.importorskip("mlxtend")
-                from mlxtend.frequent_patterns import fpgrowth as mlxtend_fpgrowth
+                from mlxtend.frequent_patterns import \
+                    fpgrowth as mlxtend_fpgrowth
+
                 start = time.time()
-                mlxtend_result = mlxtend_fpgrowth(df, min_support=min_support, use_colnames=False)
+                mlxtend_result = mlxtend_fpgrowth(
+                    df, min_support=min_support, use_colnames=False
+                )
                 mlxtend_time = f"{time.time() - start:.2f}s"
         except (ImportError, MemoryError, Exception):
             mlxtend_time = "OOM"
@@ -190,16 +216,19 @@ class TestSpeedBenchmarks:
         ea_time = "N/A"
         try:
             import efficient_apriori
+
             transactions_list = [tuple(np.where(row)[0]) for row in transactions]
             start = time.time()
-            itemsets, rules = efficient_apriori.apriori(transactions_list, min_support=min_support)
+            itemsets, rules = efficient_apriori.apriori(
+                transactions_list, min_support=min_support
+            )
             ea_time = f"{time.time() - start:.2f}s"
         except (ImportError, Exception):
             ea_time = "N/A"
 
         # Calculate speedup vs Efficient-Apriori if available
         speedup = "N/A"
-        if ea_time != "N/A" and isinstance(ea_time, str) and ea_time.endswith('s'):
+        if ea_time != "N/A" and isinstance(ea_time, str) and ea_time.endswith("s"):
             try:
                 ea_float = float(ea_time[:-1])
                 if priors_time > 0:
@@ -208,7 +237,9 @@ class TestSpeedBenchmarks:
                 speedup = "N/A"
 
         add_speed_benchmark(dataset_size, mlxtend_time, ea_time, priors_time, speedup)
-        print(f"{dataset_size}: Priors={priors_time:.2f}s, MLxtend={mlxtend_time}, EA={ea_time}, Speedup={speedup}")
+        print(
+            f"{dataset_size}: Priors={priors_time:.2f}s, MLxtend={mlxtend_time}, EA={ea_time}, Speedup={speedup}"
+        )
 
 
 def print_speed_benchmarks():
@@ -223,11 +254,15 @@ def print_speed_benchmarks():
     df = pd.DataFrame(speed_benchmark_results)
 
     # Print formatted table
-    print(f"{'Dataset Size':<15} {'MLxtend':<12} {'Efficient-Apriori':<18} {'Priors FP-Growth':<18} {'Speedup':<10}")
+    print(
+        f"{'Dataset Size':<15} {'MLxtend':<12} {'Efficient-Apriori':<18} {'Priors FP-Growth':<18} {'Speedup':<10}"
+    )
     print("-" * 80)
 
     for _, row in df.iterrows():
-        print(f"{row['Dataset Size']:<15} {row['MLxtend']:<12} {row['Efficient-Apriori']:<18} {row['Priors FP-Growth']:<18} {row['Speedup']:<10}")
+        print(
+            f"{row['Dataset Size']:<15} {row['MLxtend']:<12} {row['Efficient-Apriori']:<18} {row['Priors FP-Growth']:<18} {row['Speedup']:<10}"
+        )
 
     print("=" * 80)
     print("MLxtend fails with OOM (Out of Memory) on larger datasets")
@@ -236,6 +271,7 @@ def print_speed_benchmarks():
 @pytest.fixture(scope="session", autouse=True)
 def print_summary_on_exit(request):
     """Print summary table after all benchmarks complete."""
+
     def finalize():
         print_speed_benchmarks()
         print("=" * 80 + "\n")
