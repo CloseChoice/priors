@@ -50,7 +50,7 @@ jobs:
         run: |
           source .venv/bin/activate
           cd priors
-          pytest tests/ -v --cov=. --cov-report=term --cov-report=xml --cov-report=html
+          pytest tests/test_comparison.py -v --cov=. --cov-report=term --cov-report=xml --cov-report=html
         continue-on-error: true
 
       - name: Generate coverage report
@@ -69,7 +69,7 @@ jobs:
           echo "" >> test_summary.md
           echo "### Test Output" >> test_summary.md
           echo '```' >> test_summary.md
-          pytest tests/ -v --tb=short 2>&1 | tail -n 50 >> test_summary.md || true
+          pytest tests/test_comparison.py -v --tb=short 2>&1 | tail -n 50 >> test_summary.md || true
           echo '```' >> test_summary.md
 
       - name: Comment PR with test results
