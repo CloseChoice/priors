@@ -66,15 +66,25 @@ jobs:
           test_output=$(pytest tests/test_comparison.py tests/test_fp_growth.py tests/test_streaming.py -v -m "not slow" --tb=line 2>&1 || true)
 
           # Extract test statistics
-          passed=$(echo "$test_output" | grep -oP '\d+(?= passed)' | tail -1 || echo "0")
-          failed=$(echo "$test_output" | grep -oP '\d+(?= failed)' | tail -1 || echo "0")
+          passed=$(echo "$test_output" | grep -oP '\d+(?= passed)' | tail -1)
+          if [ -z "$passed" ]; then
+            passed=0
+          fi
+
+          failed=$(echo "$test_output" | grep -oP '\d+(?= failed)' | tail -1)
+          if [ -z "$failed" ]; then
+            failed=0
+          fi
+
           total=$((passed + failed))
 
           # Create badges
-          if [ "$failed" -eq 0 ]; then
+          if [ "$failed" -eq 0 ] && [ "$passed" -gt 0 ]; then
             test_badge="✅ All tests passed"
-          else
+          elif [ "$failed" -gt 0 ]; then
             test_badge="❌ $failed test(s) failed"
+          else
+            test_badge="⚠️ No tests found"
           fi
 
           # Create summary
