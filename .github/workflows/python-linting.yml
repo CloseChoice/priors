@@ -46,3 +46,5 @@ jobs:
           commit_message: "style: auto-format with black and isort"
           commit_user_name: "github-actions[bot]"
           commit_user_email: "github-actions[bot]@users.noreply.github.com"
+          skip_dirty_check: true
+          skip_fetch: false
