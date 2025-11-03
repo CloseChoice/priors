@@ -1,0 +1,76 @@
+name: Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+      - feat/ci-pipeline-4
+  push:
+    branches:
+      - main
+      - feat/ci-pipeline-4
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  test:
+    name: Run Python Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov maturin
+          cd priors
+          maturin develop
+
+      - name: Run tests with coverage
+        run: |
+          cd priors
+          pytest tests/ -v --cov=. --cov-report=term --cov-report=xml --cov-report=html
+        continue-on-error: true
+
+      - name: Generate coverage report
+        id: coverage
+        run: |
+          cd priors
+          coverage_percent=$(python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); print(root.attrib['line-rate'])" 2>/dev/null || echo "0")
+          coverage_percent=$(python -c "print(f'{float('$coverage_percent') * 100:.2f}')")
+          echo "coverage=$coverage_percent" >> $GITHUB_OUTPUT
+
+          # Create summary
+          echo "## Test Results" > test_summary.md
+          echo "" >> test_summary.md
+          echo "**Coverage:** ${coverage_percent}%" >> test_summary.md
+          echo "" >> test_summary.md
+          echo "### Test Output" >> test_summary.md
+          echo '```' >> test_summary.md
+          pytest tests/ -v --tb=short 2>&1 | tail -n 50 >> test_summary.md || true
+          echo '```' >> test_summary.md
+
+      - name: Comment PR with test results
+        if: github.event_name == 'pull_request'
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          filePath: priors/test_summary.md
+          comment_tag: test_results
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: priors/htmlcov/
