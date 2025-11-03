@@ -34,13 +34,17 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install Python dev packages (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y python3-dev
+
       - name: Install maturin
         run: pip install maturin
 
       - name: Build wheels
         run: |
           cd priors
-          maturin build --release --out dist
+          maturin build --release --out dist --find-interpreter
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
