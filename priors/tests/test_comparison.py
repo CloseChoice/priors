@@ -101,18 +101,18 @@ def test_fpgrowth_vs_efficient_apriori_basic():
     transactions_list = [tuple(np.where(row)[0]) for row in transactions]
     ea_itemsets, ea_rules = efficient_apriori.apriori(transactions_list, min_support=min_support)
 
-    # Convert efficient_apriori results to comparable format
+    # Convert efficient_apriori results to dictionary: {itemset: support}
     # ea_itemsets format: {1: {(item,): count}, 2: {(item1, item2): count}, ...}
-    ea_set = set()
+    ea_dict = {}
     if ea_itemsets:
         for size, itemsets_dict in ea_itemsets.items():
             for itemset, count in itemsets_dict.items():
                 support = count / num_transactions
-                ea_set.add((frozenset(itemset), support))
+                ea_dict[frozenset(itemset)] = support
 
-    # Convert priors results to comparable format
-    priors_set = set((frozenset(row['itemsets']), row['support'])
-                     for _, row in priors_result.iterrows())
+    # Convert priors results to dictionary: {itemset: support}
+    priors_dict = {frozenset(row['itemsets']): row['support']
+                   for _, row in priors_result.iterrows()}
 
     # Debug output
     print("\n=== PRIORS RESULT ===")
@@ -131,9 +131,11 @@ def test_fpgrowth_vs_efficient_apriori_basic():
     assert priors_count == ea_count, \
         f"Itemset count mismatch: priors={priors_count}, efficient_apriori={ea_count}"
 
-    # Compare itemsets and supports (order-independent)
-    assert priors_set == ea_set, \
-        f"Itemsets mismatch:\nPriors only: {priors_set - ea_set}\nEfficient_apriori only: {ea_set - priors_set}"
+    # Compare dictionaries: itemsets and their support values
+    assert priors_dict == ea_dict, \
+        f"Itemsets mismatch:\nPriors only: {set(priors_dict.keys()) - set(ea_dict.keys())}\n" \
+        f"Efficient_apriori only: {set(ea_dict.keys()) - set(priors_dict.keys())}\n" \
+        f"Different supports: {[(k, priors_dict[k], ea_dict[k]) for k in priors_dict.keys() & ea_dict.keys() if priors_dict[k] != ea_dict[k]]}"
 
 def test_fpgrowth_vs_mlxtend_medium():
     """Compare with mlxtend on medium-sized dataset."""
