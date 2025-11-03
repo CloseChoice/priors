@@ -17,28 +17,53 @@ permissions:
 
 jobs:
   build-wheels:
-    name: Build wheels on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+    name: Build wheels on ${{ matrix.platform.os }}
+    runs-on: ${{ matrix.platform.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-13, macos-14]
+        platform:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: macos-13
+            target: x86_64-apple-darwin
+          - os: macos-14
+            target: aarch64-apple-darwin
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build wheels
+      - name: Build wheels (Linux)
+        if: runner.os == 'Linux'
         uses: PyO3/maturin-action@v1
         with:
-          target: ${{ matrix.os == 'macos-14' && 'aarch64-apple-darwin' || 'auto' }}
+          target: ${{ matrix.platform.target }}
           args: --release --out dist --find-interpreter --manifest-path priors/Cargo.toml
           sccache: 'true'
           manylinux: auto
 
+      - name: Build wheels (macOS)
+        if: runner.os == 'macOS'
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist --find-interpreter --manifest-path priors/Cargo.toml
+          sccache: 'true'
+
+      - name: Build wheels (Windows)
+        if: runner.os == 'Windows'
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist --find-interpreter --manifest-path priors/Cargo.toml
+          sccache: 'true'
+
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-${{ matrix.os }}
+          name: wheels-${{ matrix.platform.os }}-${{ matrix.platform.target }}
           path: dist/*.whl
 
   build-sdist:
@@ -66,23 +91,20 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
-      - name: Download all wheel artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: dist
-          pattern: wheels-*
 
-      - name: Download sdist
-        uses: actions/download-artifact@v4
-        with:
-          name: sdist
-          path: dist/sdist
+      - name: List downloaded files
+        run: ls -R dist
 
       - name: Flatten artifacts
         run: |
           mkdir -p release
           find dist -name "*.whl" -exec cp {} release/ \;
           find dist -name "*.tar.gz" -exec cp {} release/ \;
+          ls -lh release/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
