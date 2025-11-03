@@ -28,10 +28,15 @@ jobs:
         with:
           components: clippy, rustfmt
 
-      - name: Run linters
-        uses: wearerequired/lint-action@v2
+      - name: Auto-format with rustfmt
+        run: cargo fmt --all
+
+      - name: Run clippy with auto-fix
+        run: cargo clippy --all-targets --all-features --fix --allow-dirty -- -D warnings
+
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          auto_fix: true
-          clippy: true
-          rustfmt: true
-          clippy_auto_fix: false
+          commit_message: "style: auto-format with rustfmt and clippy"
+          commit_user_name: "github-actions[bot]"
+          commit_user_email: "github-actions[bot]@users.noreply.github.com"
