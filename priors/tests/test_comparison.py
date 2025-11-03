@@ -82,22 +82,58 @@ def test_fpgrowth_vs_efficient_apriori_basic():
     except ImportError:
         pytest.skip("efficient_apriori not available")
 
+    # Import the conversion utility
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from utils import fp_growth_to_dataframe
+
     # Create test data
     transactions = generate_transactions(50, 10, 4, seed=123)
     min_support = 0.2
+    num_transactions = len(transactions)
 
     # Run priors
     itemsets_list, supports_list = priors.fp_growth(transactions, min_support)
-    priors_count = count_itemsets((itemsets_list, supports_list))
+    priors_result = fp_growth_to_dataframe(itemsets_list, supports_list, num_transactions)
 
     # Run efficient_apriori
     transactions_list = [tuple(np.where(row)[0]) for row in transactions]
     ea_itemsets, ea_rules = efficient_apriori.apriori(transactions_list, min_support=min_support)
-    ea_count = sum(len(itemsets) for itemsets in ea_itemsets.values()) if ea_itemsets else 0
+
+    # Convert efficient_apriori results to comparable format
+    # ea_itemsets format: {1: {(item,): count}, 2: {(item1, item2): count}, ...}
+    ea_set = set()
+    if ea_itemsets:
+        for size, itemsets_dict in ea_itemsets.items():
+            for itemset, count in itemsets_dict.items():
+                support = count / num_transactions
+                ea_set.add((frozenset(itemset), support))
+
+    # Convert priors results to comparable format
+    priors_set = set((frozenset(row['itemsets']), row['support'])
+                     for _, row in priors_result.iterrows())
+
+    # Debug output
+    print("\n=== PRIORS RESULT ===")
+    print(priors_result)
+    print("\n=== EFFICIENT_APRIORI RESULT ===")
+    if ea_itemsets:
+        for size in sorted(ea_itemsets.keys()):
+            print(f"Size {size}:")
+            for itemset, count in sorted(ea_itemsets[size].items()):
+                support = count / num_transactions
+                print(f"  {itemset}: support={support:.3f} (count={count})")
 
     # Compare counts
+    priors_count = len(priors_result)
+    ea_count = sum(len(itemsets) for itemsets in ea_itemsets.values()) if ea_itemsets else 0
     assert priors_count == ea_count, \
         f"Itemset count mismatch: priors={priors_count}, efficient_apriori={ea_count}"
+
+    # Compare itemsets and supports (order-independent)
+    assert priors_set == ea_set, \
+        f"Itemsets mismatch:\nPriors only: {priors_set - ea_set}\nEfficient_apriori only: {ea_set - priors_set}"
 
 def test_fpgrowth_vs_mlxtend_medium():
     """Compare with mlxtend on medium-sized dataset."""
