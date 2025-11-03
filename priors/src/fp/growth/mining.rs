@@ -23,7 +23,7 @@ fn fp_growth_recursive(
         let mut result = Vec::new();
         let path = fp_tree.get_single_path();
         for i in 1..=path.len() {
-            generate_combinations(&path, i, alpha, &mut result);
+            generate_combinations(&path, i, alpha, &mut result, num_transactions);
         }
         return result;
     }
@@ -44,7 +44,7 @@ fn fp_growth_recursive(
             let mut new_pattern = alpha.to_vec();
             new_pattern.push(item);
             let mut result = vec![FrequentLevel::new(new_pattern.len())];
-            result[0].add_itemset(new_pattern.clone());
+            result[0].add_itemset_with_support(new_pattern.clone(), support);
 
             let prefix_paths = fp_tree.get_prefix_paths(item);
             if !prefix_paths.is_empty() {
@@ -77,6 +77,9 @@ fn fp_growth_recursive(
             for (start, len) in level.storage.offsets {
                 merged[size - 1].storage.offsets.push((current_len + start, len));
             }
+
+            // Copy support values
+            merged[size - 1].storage.supports.extend_from_slice(&level.storage.supports);
         }
     }
     merged
@@ -87,13 +90,14 @@ fn generate_combinations(
     k: usize,
     alpha: &[usize],
     result: &mut Vec<FrequentLevel>,
+    num_transactions: usize,
 ) {
     if k == 0 || k > path.len() {
         return;
     }
 
     let mut current = Vec::with_capacity(k);
-    generate_comb_recursive(path, k, 0, &mut current, alpha, result);
+    generate_comb_recursive(path, k, 0, &mut current, alpha, result, num_transactions);
 }
 
 fn generate_comb_recursive(
@@ -103,22 +107,26 @@ fn generate_comb_recursive(
     current: &mut Vec<usize>,
     alpha: &[usize],
     result: &mut Vec<FrequentLevel>,
+    num_transactions: usize,
 ) {
     if current.len() == k {
         let mut pattern = Vec::with_capacity(alpha.len() + k);
         pattern.extend_from_slice(alpha);
         pattern.extend(current.iter().map(|&idx| path[idx].0));
 
+        // Calculate minimum support from the path items in this combination
+        let min_support_count = current.iter().map(|&idx| path[idx].1).min().unwrap_or(0);
+
         while result.len() < pattern.len() {
             result.push(FrequentLevel::new(result.len() + 1));
         }
-        result[pattern.len() - 1].add_itemset(pattern);
+        result[pattern.len() - 1].add_itemset_with_support(pattern, min_support_count);
         return;
     }
 
     for i in start..path.len() {
         current.push(i);
-        generate_comb_recursive(path, k, i + 1, current, alpha, result);
+        generate_comb_recursive(path, k, i + 1, current, alpha, result, num_transactions);
         current.pop();
     }
 }

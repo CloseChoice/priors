@@ -24,11 +24,12 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
         py: Python<'py>,
         transactions: PyReadonlyArray2<'py, i32>,
         min_support: f64,
-    ) -> PyResult<Vec<Bound<'py, PyArray2<usize>>>> {
+    ) -> PyResult<(Vec<Bound<'py, PyArray2<usize>>>, Vec<Vec<usize>>)> {
         let transactions_view = transactions.as_array();
         let frequent_levels = fp_growth_algorithm(transactions_view, min_support);
 
-        let mut result = Vec::new();
+        let mut itemsets = Vec::new();
+        let mut supports = Vec::new();
 
         for level in frequent_levels {
             if level.len() == 0 {
@@ -48,10 +49,11 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
             let array = Array2::from_shape_vec((num_itemsets, itemset_size), data)
                 .map_err(|_| pyo3::exceptions::PyValueError::new_err("Failed to create array"))?;
 
-            result.push(array.into_pyarray(py));
+            itemsets.push(array.into_pyarray(py));
+            supports.push(level.storage.supports.clone());
         }
 
-        Ok(result)
+        Ok((itemsets, supports))
     }
 
     // Streaming FP-Growth functions

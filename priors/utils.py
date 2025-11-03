@@ -5,6 +5,7 @@ Used by both tests and benchmarks.
 """
 
 import numpy as np
+import pandas as pd
 
 
 def count_itemsets(result):
@@ -12,13 +13,21 @@ def count_itemsets(result):
     Count total itemsets from priors result format.
 
     Args:
-        result: Result from fp_growth() - can be list of arrays or single array
+        result: Result from fp_growth() - can be tuple (itemsets_list, supports_list),
+                list of arrays, or single array
 
     Returns:
         int: Total number of itemsets found
     """
     if result is None:
         return 0
+    # Handle new tuple format (itemsets_list, supports_list)
+    if isinstance(result, tuple) and len(result) == 2:
+        itemsets_list, _ = result
+        if isinstance(itemsets_list, list):
+            return sum(level.shape[0] for level in itemsets_list
+                      if level is not None and hasattr(level, 'shape') and level.shape[0] > 0)
+    # Handle old list format
     if isinstance(result, list):
         return sum(level.shape[0] for level in result
                   if level is not None and hasattr(level, 'shape') and level.shape[0] > 0)
@@ -146,3 +155,40 @@ def extract_itemsets_from_result(result):
                         itemsets.append(tuple(range(level_idx + 1)))
 
     return set(itemsets)
+
+
+def fp_growth_to_dataframe(itemsets_list, supports_list, num_transactions):
+    """
+    Convert priors fp_growth result to pandas DataFrame format matching mlxtend.
+
+    Args:
+        itemsets_list: List of numpy arrays, one per itemset size
+        supports_list: List of lists containing support counts for each itemset
+        num_transactions: Total number of transactions
+
+    Returns:
+        pd.DataFrame: DataFrame with 'support' and 'itemsets' columns
+    """
+    all_itemsets = []
+    all_supports = []
+
+    for itemsets_array, supports in zip(itemsets_list, supports_list):
+        for i in range(itemsets_array.shape[0]):
+            itemset = frozenset(itemsets_array[i])
+            support = supports[i] / num_transactions
+            all_itemsets.append(itemset)
+            all_supports.append(support)
+
+    df = pd.DataFrame({
+        'support': all_supports,
+        'itemsets': all_itemsets
+    })
+
+    # Sort by support descending, then by length, then by sorted tuple representation
+    # This matches mlxtend's ordering
+    df['_len'] = df['itemsets'].apply(len)
+    df['_sorted'] = df['itemsets'].apply(lambda x: tuple(sorted(x)))
+    df = df.sort_values(['support', '_len', '_sorted'], ascending=[False, True, True])
+    df = df.drop(columns=['_len', '_sorted']).reset_index(drop=True)
+
+    return df

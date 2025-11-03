@@ -24,33 +24,56 @@ from conftest import (
 
 def test_fpgrowth_vs_mlxtend_basic():
     """Compare priors FP-Growth with mlxtend on basic dataset."""
+    import pandas.testing as tm
     mlxtend = pytest.importorskip("mlxtend")
     from mlxtend.frequent_patterns import fpgrowth as mlxtend_fpgrowth
+
+    # Import the conversion utility
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from utils import fp_growth_to_dataframe
 
     # Create simple test data
     transactions = np.array([
         [1, 1, 0, 1, 0],
-        [1, 0, 1, 1, 0], 
+        [1, 0, 1, 1, 0],
         [0, 1, 1, 1, 0],
         [1, 1, 1, 0, 0],
         [1, 1, 0, 1, 0],
     ], dtype=np.int32)
 
     min_support = 0.4
-    
-    # Run priors
-    priors_result = priors.fp_growth(transactions, min_support)
-    priors_count = count_itemsets(priors_result)
-    
+
+    # Run priors - now returns (itemsets_list, supports_list) tuple
+    itemsets_list, supports_list = priors.fp_growth(transactions, min_support)
+    priors_result = fp_growth_to_dataframe(itemsets_list, supports_list, len(transactions))
+
     # Run mlxtend
-    df = pd.DataFrame(transactions.astype(bool), 
+    df = pd.DataFrame(transactions.astype(bool),
                      columns=[f'item_{i}' for i in range(transactions.shape[1])])
     mlxtend_result = mlxtend_fpgrowth(df, min_support=min_support, use_colnames=False)
+
+    # Debug output
+    print("\n=== PRIORS RESULT ===")
+    print(priors_result)
+    print("\n=== MLXTEND RESULT ===")
+    print(mlxtend_result)
+
+    # Compare DataFrames
+    priors_count = len(priors_result)
     mlxtend_count = len(mlxtend_result)
-    
-    # Compare counts
     assert priors_count == mlxtend_count, \
         f"Itemset count mismatch: priors={priors_count}, mlxtend={mlxtend_count}"
+
+    # Compare itemsets and supports (order-independent)
+    priors_set = set((frozenset(row['itemsets']), row['support'])
+                     for _, row in priors_result.iterrows())
+    mlxtend_set = set((frozenset(row['itemsets']), row['support'])
+                      for _, row in mlxtend_result.iterrows())
+
+    assert priors_set == mlxtend_set, \
+        f"Itemsets mismatch:\nPriors only: {priors_set - mlxtend_set}\nMlxtend only: {mlxtend_set - priors_set}"
 
 def test_fpgrowth_vs_efficient_apriori_basic():
     """Compare priors FP-Growth with efficient_apriori."""
@@ -78,26 +101,43 @@ def test_fpgrowth_vs_efficient_apriori_basic():
 
 def test_fpgrowth_vs_mlxtend_medium():
     """Compare with mlxtend on medium-sized dataset."""
+    import pandas.testing as tm
     mlxtend = pytest.importorskip("mlxtend")
     from mlxtend.frequent_patterns import fpgrowth as mlxtend_fpgrowth
+
+    # Import the conversion utility
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from utils import fp_growth_to_dataframe
 
     # Generate medium dataset
     transactions = generate_transactions(200, 20, 6, seed=456)
     min_support = 0.1
 
     # Run priors
-    priors_result = priors.fp_growth(transactions, min_support)
-    priors_count = count_itemsets(priors_result)
+    itemsets_list, supports_list = priors.fp_growth(transactions, min_support)
+    priors_result = fp_growth_to_dataframe(itemsets_list, supports_list, len(transactions))
 
     # Run mlxtend
     df = pd.DataFrame(transactions.astype(bool),
                      columns=[f'item_{i}' for i in range(transactions.shape[1])])
     mlxtend_result = mlxtend_fpgrowth(df, min_support=min_support, use_colnames=False)
-    mlxtend_count = len(mlxtend_result)
 
     # Compare results
+    priors_count = len(priors_result)
+    mlxtend_count = len(mlxtend_result)
     assert priors_count == mlxtend_count, \
         f"Itemset count mismatch: priors={priors_count}, mlxtend={mlxtend_count}"
+
+    # Compare itemsets and supports (order-independent)
+    priors_set = set((frozenset(row['itemsets']), row['support'])
+                     for _, row in priors_result.iterrows())
+    mlxtend_set = set((frozenset(row['itemsets']), row['support'])
+                      for _, row in mlxtend_result.iterrows())
+
+    assert priors_set == mlxtend_set, \
+        f"Itemsets mismatch:\nPriors only: {priors_set - mlxtend_set}\nMlxtend only: {mlxtend_set - priors_set}"
 
 
 # ============================================================================
