@@ -114,10 +114,6 @@ def test_fpgrowth_vs_efficient_apriori_basic():
     priors_dict = {frozenset(row['itemsets']): row['support']
                    for _, row in priors_result.iterrows()}
 
-    # Debug output
-    print("\n=== PRIORS RESULT ===")
-    print(priors_result)
-    print("\n=== EFFICIENT_APRIORI RESULT ===")
     if ea_itemsets:
         for size in sorted(ea_itemsets.keys()):
             print(f"Size {size}:")
