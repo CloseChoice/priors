@@ -85,11 +85,11 @@ def test_fpgrowth_vs_efficient_apriori_basic():
     # Create test data
     transactions = generate_transactions(50, 10, 4, seed=123)
     min_support = 0.2
-    
+
     # Run priors
-    priors_result = priors.fp_growth(transactions, min_support)
-    priors_count = count_itemsets(priors_result)
-    
+    itemsets_list, supports_list = priors.fp_growth(transactions, min_support)
+    priors_count = count_itemsets((itemsets_list, supports_list))
+
     # Run efficient_apriori
     transactions_list = [tuple(np.where(row)[0]) for row in transactions]
     ea_itemsets, ea_rules = efficient_apriori.apriori(transactions_list, min_support=min_support)
@@ -164,8 +164,8 @@ def test_fpgrowth_consistent_across_scales():
 
     for scale in scales:
         transactions = np.tile(base_pattern, (scale, 1))
-        result = priors.fp_growth(transactions, min_support)
-        itemset_count = count_itemsets(result)
+        itemsets_list, supports_list = priors.fp_growth(transactions, min_support)
+        itemset_count = count_itemsets((itemsets_list, supports_list))
 
         if baseline_count is None:
             baseline_count = itemset_count
@@ -182,8 +182,8 @@ def test_fpgrowth_different_supports():
     prev_count = 0
 
     for support in support_levels:
-        result = priors.fp_growth(transactions, support)
-        itemset_count = count_itemsets(result)
+        itemsets_list, supports_list = priors.fp_growth(transactions, support)
+        itemset_count = count_itemsets((itemsets_list, supports_list))
 
         # Lower support should find more or equal itemsets (monotonic property)
         assert itemset_count >= prev_count, \
@@ -196,8 +196,8 @@ def test_fpgrowth_empty_transactions():
     transactions = np.array([], dtype=np.int32).reshape(0, 10)
     min_support = 0.1
 
-    result = priors.fp_growth(transactions, min_support)
-    itemset_count = count_itemsets(result)
+    itemsets_list, supports_list = priors.fp_growth(transactions, min_support)
+    itemset_count = count_itemsets((itemsets_list, supports_list))
 
     assert itemset_count == 0, f"Empty transactions should return 0 itemsets, got {itemset_count}"
 
@@ -222,8 +222,8 @@ def test_simple_known_result():
     ], dtype=np.int32)
     min_support = 1.0  # 100%
 
-    result = priors.fp_growth(transactions, min_support)
-    itemset_count = count_itemsets(result)
+    itemsets_list, supports_list = priors.fp_growth(transactions, min_support)
+    itemset_count = count_itemsets((itemsets_list, supports_list))
 
     # Expected: {0}, {1}, {0,1} = 3 itemsets total
     assert itemset_count == 3, f"Expected 3 itemsets, got {itemset_count}"
@@ -239,13 +239,13 @@ def test_known_result_with_scaling():
     min_support = 1.0  # 100%
 
     # Run on base - all items appear 100%, so we expect 2^3-1=7 itemsets
-    result_base = priors.fp_growth(base, min_support)
-    count_base = count_itemsets(result_base)
+    itemsets_list_base, supports_list_base = priors.fp_growth(base, min_support)
+    count_base = count_itemsets((itemsets_list_base, supports_list_base))
 
     # Run on scaled version (100x)
     scaled = np.tile(base, (100, 1))
-    result_scaled = priors.fp_growth(scaled, min_support)
-    count_scaled = count_itemsets(result_scaled)
+    itemsets_list_scaled, supports_list_scaled = priors.fp_growth(scaled, min_support)
+    count_scaled = count_itemsets((itemsets_list_scaled, supports_list_scaled))
 
     # Should find same patterns - all items still at 100%
     assert count_base == count_scaled, \
@@ -268,12 +268,12 @@ def test_support_threshold_filtering():
     ], dtype=np.int32)
 
     # At 60% support, only items 1,2 should be frequent (50% for item 0)
-    result_60 = priors.fp_growth(transactions, 0.6)
-    count_60 = count_itemsets(result_60)
+    itemsets_list_60, supports_list_60 = priors.fp_growth(transactions, 0.6)
+    count_60 = count_itemsets((itemsets_list_60, supports_list_60))
 
     # At 50% support, items 0,1,2 should all be frequent
-    result_50 = priors.fp_growth(transactions, 0.5)
-    count_50 = count_itemsets(result_50)
+    itemsets_list_50, supports_list_50 = priors.fp_growth(transactions, 0.5)
+    count_50 = count_itemsets((itemsets_list_50, supports_list_50))
 
     # Lower support should find more itemsets
     assert count_50 > count_60, \
@@ -313,21 +313,21 @@ def test_scalable_known_results():
 
         # At 100% support: only item C (100%)
         # Expected: {C} = 1 itemset
-        result_100 = priors.fp_growth(transactions, 1.0)
-        count_100 = count_itemsets(result_100)
+        itemsets_list_100, supports_list_100 = priors.fp_growth(transactions, 1.0)
+        count_100 = count_itemsets((itemsets_list_100, supports_list_100))
         assert count_100 == 1, \
             f"Scale {num_trans}: 100% support should find exactly 1 itemset, got {count_100}"
 
         # At 70% support: items B (70%) and C (100%)
         # Expected: {B}, {C}, {B,C} = 3 itemsets
-        result_70 = priors.fp_growth(transactions, 0.7)
-        count_70 = count_itemsets(result_70)
+        itemsets_list_70, supports_list_70 = priors.fp_growth(transactions, 0.7)
+        count_70 = count_itemsets((itemsets_list_70, supports_list_70))
         assert count_70 == 3, \
             f"Scale {num_trans}: 70% support should find exactly 3 itemsets, got {count_70}"
 
         # At 50% support: items A (50%), B (70%), C (100%)
         # Expected: {A}, {B}, {C}, {A,B}, {A,C}, {B,C}, {A,B,C} = 7 itemsets (2^3-1)
-        result_50 = priors.fp_growth(transactions, 0.5)
-        count_50 = count_itemsets(result_50)
+        itemsets_list_50, supports_list_50 = priors.fp_growth(transactions, 0.5)
+        count_50 = count_itemsets((itemsets_list_50, supports_list_50))
         assert count_50 == 7, \
             f"Scale {num_trans}: 50% support should find exactly 7 itemsets, got {count_50}"
