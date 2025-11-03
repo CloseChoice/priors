@@ -31,15 +31,24 @@ jobs:
       - name: Install Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Create virtual environment
+        run: python -m venv .venv
+
       - name: Install dependencies
         run: |
+          source .venv/bin/activate
           python -m pip install --upgrade pip
           pip install pytest pytest-cov maturin
+
+      - name: Build Rust extension
+        run: |
+          source .venv/bin/activate
           cd priors
           maturin develop
 
       - name: Run tests with coverage
         run: |
+          source .venv/bin/activate
           cd priors
           pytest tests/ -v --cov=. --cov-report=term --cov-report=xml --cov-report=html
         continue-on-error: true
@@ -47,6 +56,7 @@ jobs:
       - name: Generate coverage report
         id: coverage
         run: |
+          source .venv/bin/activate
           cd priors
           coverage_percent=$(python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); print(root.attrib['line-rate'])" 2>/dev/null || echo "0")
           coverage_percent=$(python -c "print(f'{float('$coverage_percent') * 100:.2f}')")
