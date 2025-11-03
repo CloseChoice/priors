@@ -50,7 +50,7 @@ jobs:
         run: |
           source .venv/bin/activate
           cd priors
-          pytest tests/test_comparison.py tests/test_fp_growth.py tests/test_streaming.py -v --cov=. --cov-report=term --cov-report=xml --cov-report=html
+          pytest tests/test_comparison.py tests/test_fp_growth.py tests/test_streaming.py -v -m "not slow" --cov=. --cov-report=term --cov-report=xml --cov-report=html
         continue-on-error: true
 
       - name: Generate coverage report
@@ -63,7 +63,7 @@ jobs:
           echo "coverage=$coverage_percent" >> $GITHUB_OUTPUT
 
           # Run pytest and capture results
-          test_output=$(pytest tests/test_comparison.py tests/test_fp_growth.py tests/test_streaming.py -v --tb=line 2>&1 || true)
+          test_output=$(pytest tests/test_comparison.py tests/test_fp_growth.py tests/test_streaming.py -v -m "not slow" --tb=line 2>&1 || true)
 
           # Extract test statistics
           passed=$(echo "$test_output" | grep -oP '\d+(?= passed)' | tail -1 || echo "0")

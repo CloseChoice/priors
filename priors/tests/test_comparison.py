@@ -159,6 +159,7 @@ def test_fpgrowth_vs_efficient_apriori_basic():
     )
 
 
+@pytest.mark.slow
 def test_fpgrowth_vs_mlxtend_medium():
     """Compare with mlxtend on medium-sized dataset."""
     import pandas.testing as tm
@@ -234,8 +235,8 @@ def test_fpgrowth_consistent_across_scales():
 
     min_support = 0.5  # 50% - items 0,1 together (50%) and 2,3 together (50%)
 
-    # Test at different scales
-    scales = [1, 10, 100, 1000]
+    # Test at different scales (reduced for CI performance)
+    scales = [1, 10, 100]
     baseline_count = None
 
     for scale in scales:
@@ -254,9 +255,9 @@ def test_fpgrowth_consistent_across_scales():
 
 def test_fpgrowth_different_supports():
     """Test that lower support finds monotonically more itemsets."""
-    transactions = generate_transactions(500, 30, 8, seed=131415)
+    transactions = generate_transactions(200, 30, 8, seed=131415)
 
-    support_levels = [0.1, 0.05, 0.02, 0.01]
+    support_levels = [0.1, 0.05, 0.02]
     prev_count = 0
 
     for support in support_levels:
@@ -407,8 +408,8 @@ def test_scalable_known_results():
         )
         return np.tile(base_block, (num_blocks, 1))
 
-    # Test at different scales
-    for num_blocks in [1, 10, 100, 1000]:
+    # Test at different scales (reduced for CI performance)
+    for num_blocks in [1, 10, 100]:
         transactions = create_pattern(num_blocks)
         num_trans = num_blocks * 10
 

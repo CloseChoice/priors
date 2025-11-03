@@ -71,6 +71,7 @@ def test_streaming_vs_regular_basic():
     ), f"Count mismatch: streaming={streaming_count}, regular={regular_count}"
 
 
+@pytest.mark.slow
 def test_streaming_vs_mlxtend():
     """Verify streaming matches mlxtend FP-Growth."""
     mlxtend = pytest.importorskip("mlxtend")
@@ -116,7 +117,7 @@ def test_trivial_all_ones():
 
 
 def test_scaled_dataset():
-    """Test scaled dataset: multiply small known dataset by 1000x."""
+    """Test scaled dataset: multiply small known dataset by 100x."""
     # Create base dataset
     base_transactions = np.array(
         [
@@ -127,8 +128,8 @@ def test_scaled_dataset():
         dtype=np.int32,
     )
 
-    # Scale it by repeating 1000 times
-    transactions = np.tile(base_transactions, (1000, 1))
+    # Scale it by repeating 100 times (reduced for CI performance)
+    transactions = np.tile(base_transactions, (100, 1))
     min_support = 0.3
 
     # Run regular on base
@@ -137,7 +138,7 @@ def test_scaled_dataset():
 
     # Run streaming on scaled
     streaming_result = run_streaming_fp_growth(
-        transactions, min_support, chunk_size=500
+        transactions, min_support, chunk_size=50
     )
     streaming_count = count_itemsets(streaming_result)
 

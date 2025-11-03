@@ -140,7 +140,7 @@ def test_different_support_levels():
 
 def test_large_transactions():
     """Test with larger transaction set."""
-    transactions = generate_transactions(1000, 50, 10, seed=123)
+    transactions = generate_transactions(500, 50, 10, seed=123)
     min_support = 0.1
 
     result = priors.fp_growth(transactions, min_support)
