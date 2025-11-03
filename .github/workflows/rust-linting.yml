@@ -30,9 +30,11 @@ jobs:
 
       - name: Auto-format with rustfmt
         run: cargo fmt --all
+        working-directory: ./priors
 
       - name: Run clippy with auto-fix
         run: cargo clippy --all-targets --all-features --fix --allow-dirty -- -D warnings
+        working-directory: ./priors
 
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v5
