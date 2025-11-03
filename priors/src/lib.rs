@@ -88,8 +88,7 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
             .get_mut(&pid)
             .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Invalid processor ID"))?;
 
-        count_pass(state, transactions_view)
-            .map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
+        count_pass(state, transactions_view).map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
 
         Ok(())
     }
@@ -123,8 +122,7 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
             .get_mut(&pid)
             .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Invalid processor ID"))?;
 
-        build_pass(state, transactions_view)
-            .map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
+        build_pass(state, transactions_view).map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
 
         Ok(())
     }
@@ -160,8 +158,8 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
             .get(&pid)
             .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Invalid processor ID"))?;
 
-        let frequent_levels = mine_patterns(state, min_support)
-            .map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
+        let frequent_levels =
+            mine_patterns(state, min_support).map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
 
         let mut result = Vec::new();
 
@@ -226,8 +224,7 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
             let end = std::cmp::min(start + chunk_size, num_transactions);
             let chunk = transactions_view.slice(s![start..end, ..]);
 
-            count_pass(&mut state, chunk)
-                .map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
+            count_pass(&mut state, chunk).map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
         }
 
         // Phase 2: Finalize counts
@@ -239,13 +236,11 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
             let end = std::cmp::min(start + chunk_size, num_transactions);
             let chunk = transactions_view.slice(s![start..end, ..]);
 
-            build_pass(&mut state, chunk)
-                .map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
+            build_pass(&mut state, chunk).map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
         }
 
         // Phase 4: Finalize building
-        fp_finalize_building(&mut state)
-            .map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
+        fp_finalize_building(&mut state).map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
 
         // Phase 5: Mine patterns
         let frequent_levels = mine_patterns(&state, min_support)

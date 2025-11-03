@@ -64,10 +64,7 @@ impl FPTree {
                 self.nodes
                     .push(FPNode::new_item(item, count, Some(current_index)));
                 self.nodes[current_index].children.insert(item, new_index);
-                self.header_table
-                    .entry(item)
-                    .or_default()
-                    .push(new_index);
+                self.header_table.entry(item).or_default().push(new_index);
                 current_index = new_index;
             }
         }
