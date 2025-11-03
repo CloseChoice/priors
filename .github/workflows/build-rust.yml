@@ -1,4 +1,4 @@
-name: Build Rust Package
+name: Build Rust Library
 
 on:
   push:
@@ -8,8 +8,6 @@ on:
     tags:
       - 'v*'
   pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
@@ -17,77 +15,77 @@ permissions:
 
 jobs:
   build:
-    name: Build on ${{ matrix.os }} - ${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
+    name: Build ${{ matrix.platform.target }}
+    runs-on: ${{ matrix.platform.runner }}
     strategy:
+      fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-latest
+        platform:
+          - runner: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-          - os: ubuntu-latest
+          - runner: ubuntu-latest
             target: x86_64-unknown-linux-musl
-          - os: windows-latest
+          - runner: windows-latest
             target: x86_64-pc-windows-msvc
-          - os: macos-latest
+          - runner: macos-13
             target: x86_64-apple-darwin
-          - os: macos-latest
+          - runner: macos-14
             target: aarch64-apple-darwin
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
+      - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: ${{ matrix.platform.target }}
 
       - name: Install musl tools
-        if: matrix.target == 'x86_64-unknown-linux-musl'
-        run: sudo apt-get install -y musl-tools
+        if: matrix.platform.target == 'x86_64-unknown-linux-musl'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
 
       - name: Build
-        run: |
-          cd priors
-          cargo build --release --target ${{ matrix.target }}
+        working-directory: priors
+        run: cargo build --release --target ${{ matrix.platform.target }}
 
-      - name: Package binaries (Unix)
-        if: matrix.os != 'windows-latest'
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
+        working-directory: priors
         run: |
-          cd priors/target/${{ matrix.target }}/release
-          tar czf priors-${{ matrix.target }}.tar.gz libpriors.*
-          mv priors-${{ matrix.target }}.tar.gz ${{ github.workspace }}
+          cd target/${{ matrix.platform.target }}/release
+          tar czf ../../../libpriors-${{ matrix.platform.target }}.tar.gz libpriors.* || tar czf ../../../libpriors-${{ matrix.platform.target }}.tar.gz *.dylib *.so *.a
 
-      - name: Package binaries (Windows)
-        if: matrix.os == 'windows-latest'
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        working-directory: priors
+        shell: bash
         run: |
-          cd priors/target/${{ matrix.target }}/release
-          7z a priors-${{ matrix.target }}.zip priors.dll priors.lib
-          move priors-${{ matrix.target }}.zip ${{ github.workspace }}
+          cd target/${{ matrix.platform.target }}/release
+          7z a ../../../libpriors-${{ matrix.platform.target }}.zip *.dll *.lib
 
-      - name: Upload artifacts
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rust-${{ matrix.target }}
+          name: rust-${{ matrix.platform.target }}
           path: |
-            priors-${{ matrix.target }}.tar.gz
-            priors-${{ matrix.target }}.zip
+            priors/libpriors-*.tar.gz
+            priors/libpriors-*.zip
 
-  publish:
-    name: Publish to GitHub Releases
-    needs: build
+  release:
+    name: Release
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
     steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          path: dist
           pattern: rust-*
+          path: dist
           merge-multiple: true
 
-      - name: Create GitHub Release
+      - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
-          generate_release_notes: true
