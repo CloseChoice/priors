@@ -137,9 +137,7 @@ def test_scaled_dataset():
     base_count = count_itemsets(base_result)
 
     # Run streaming on scaled
-    streaming_result = run_streaming_fp_growth(
-        transactions, min_support, chunk_size=50
-    )
+    streaming_result = run_streaming_fp_growth(transactions, min_support, chunk_size=50)
     streaming_count = count_itemsets(streaming_result)
 
     assert (
