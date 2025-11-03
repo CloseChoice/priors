@@ -1,7 +1,7 @@
-use super::state::{StreamingState, ProcessingPhase};
 use super::super::growth::builder::{build_conditional_fp_tree, get_conditional_frequent_items};
 use super::super::growth::tree::FPTree;
 use super::super::utils::FrequentLevel;
+use super::state::{ProcessingPhase, StreamingState};
 use numpy::ndarray::ArrayView2;
 use rayon::prelude::*;
 
@@ -46,22 +46,20 @@ pub fn build_pass(state: &mut StreamingState, transactions: ArrayView2<i32>) -> 
     let transaction_list = matrix_to_transactions(transactions);
 
     // Build a map of item ranks to avoid borrowing conflicts
-    let item_ranks: std::collections::HashMap<usize, usize> = state.frequent_items
+    let item_ranks: std::collections::HashMap<usize, usize> = state
+        .frequent_items
         .iter()
         .enumerate()
         .map(|(rank, &item)| (item, rank))
         .collect();
 
-    let fp_tree = state.fp_tree.as_mut()
-        .ok_or("FP-Tree not initialized")?;
+    let fp_tree = state.fp_tree.as_mut().ok_or("FP-Tree not initialized")?;
 
     for transaction in transaction_list {
         // Filter and sort transaction by frequency order
         let mut filtered: Vec<(usize, usize)> = transaction
             .iter()
-            .filter_map(|&item| {
-                item_ranks.get(&item).map(|&rank| (item, rank))
-            })
+            .filter_map(|&item| item_ranks.get(&item).map(|&rank| (item, rank)))
             .collect();
 
         if filtered.is_empty() {
@@ -84,20 +82,22 @@ pub fn finalize_building(state: &mut StreamingState) -> Result<(), String> {
 }
 
 /// Mine patterns from the built FP-Tree
-pub fn mine_patterns(state: &StreamingState, min_support: f64) -> Result<Vec<FrequentLevel>, String> {
+pub fn mine_patterns(
+    state: &StreamingState,
+    min_support: f64,
+) -> Result<Vec<FrequentLevel>, String> {
     if state.phase != ProcessingPhase::ReadyToMine {
         return Err(format!("Cannot mine in phase {:?}", state.phase));
     }
 
-    let fp_tree = state.fp_tree.as_ref()
-        .ok_or("FP-Tree not initialized")?;
+    let fp_tree = state.fp_tree.as_ref().ok_or("FP-Tree not initialized")?;
 
     let result = fp_growth_recursive(
         fp_tree,
         &state.frequent_items,
         &[],
         min_support,
-        state.num_transactions
+        state.num_transactions,
     );
 
     Ok(result)
@@ -126,7 +126,9 @@ fn fp_growth_recursive(
         .par_iter()
         .rev()
         .filter_map(|&item| {
-            let support = fp_tree.header_table.get(&item)?
+            let support = fp_tree
+                .header_table
+                .get(&item)?
                 .iter()
                 .map(|&idx| fp_tree.nodes[idx].count)
                 .sum::<usize>();
@@ -146,7 +148,13 @@ fn fp_growth_recursive(
                 let cond_items = get_conditional_frequent_items(&cond_tree, min_count);
 
                 if !cond_items.is_empty() {
-                    result.extend(fp_growth_recursive(&cond_tree, &cond_items, &new_pattern, min_support, num_transactions));
+                    result.extend(fp_growth_recursive(
+                        &cond_tree,
+                        &cond_items,
+                        &new_pattern,
+                        min_support,
+                        num_transactions,
+                    ));
                 }
             }
 
@@ -165,11 +173,17 @@ fn fp_growth_recursive(
 
             // Adjust offsets when merging
             let current_len = merged[size - 1].storage.items.len();
-            merged[size - 1].storage.items.extend_from_slice(&level.storage.items);
+            merged[size - 1]
+                .storage
+                .items
+                .extend_from_slice(&level.storage.items);
 
             // Adjust each offset by the current length of the merged items array
             for (start, len) in level.storage.offsets {
-                merged[size - 1].storage.offsets.push((current_len + start, len));
+                merged[size - 1]
+                    .storage
+                    .offsets
+                    .push((current_len + start, len));
             }
         }
     }

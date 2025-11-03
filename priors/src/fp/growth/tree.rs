@@ -17,11 +17,27 @@ pub struct FPTree {
 
 impl FPNode {
     pub fn new_root() -> Self {
-        Self { item: None, count: 0, parent: None, children: HashMap::new() }
+        Self {
+            item: None,
+            count: 0,
+            parent: None,
+            children: HashMap::new(),
+        }
     }
 
     pub fn new_item(item: usize, count: usize, parent: Option<usize>) -> Self {
-        Self { item: Some(item), count, parent, children: HashMap::new() }
+        Self {
+            item: Some(item),
+            count,
+            parent,
+            children: HashMap::new(),
+        }
+    }
+}
+
+impl Default for FPTree {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -29,7 +45,11 @@ impl FPTree {
     pub fn new() -> Self {
         let mut nodes = Vec::new();
         nodes.push(FPNode::new_root());
-        Self { nodes, header_table: HashMap::new(), root_index: 0 }
+        Self {
+            nodes,
+            header_table: HashMap::new(),
+            root_index: 0,
+        }
     }
 
     pub fn insert_transaction(&mut self, transaction: &[usize], counts: &[usize]) {
@@ -41,9 +61,13 @@ impl FPTree {
                 current_index = child_index;
             } else {
                 let new_index = self.nodes.len();
-                self.nodes.push(FPNode::new_item(item, count, Some(current_index)));
+                self.nodes
+                    .push(FPNode::new_item(item, count, Some(current_index)));
                 self.nodes[current_index].children.insert(item, new_index);
-                self.header_table.entry(item).or_insert_with(Vec::new).push(new_index);
+                self.header_table
+                    .entry(item)
+                    .or_default()
+                    .push(new_index);
                 current_index = new_index;
             }
         }
@@ -51,20 +75,23 @@ impl FPTree {
 
     pub fn get_prefix_paths(&self, item: usize) -> Vec<(Vec<usize>, usize)> {
         self.header_table.get(&item).map_or(Vec::new(), |nodes| {
-            nodes.iter().filter_map(|&idx| {
-                let mut path = Vec::new();
-                let mut current = self.nodes[idx].parent;
+            nodes
+                .iter()
+                .filter_map(|&idx| {
+                    let mut path = Vec::new();
+                    let mut current = self.nodes[idx].parent;
 
-                while let Some(i) = current {
-                    if let Some(item) = self.nodes[i].item {
-                        path.push(item);
+                    while let Some(i) = current {
+                        if let Some(item) = self.nodes[i].item {
+                            path.push(item);
+                        }
+                        current = self.nodes[i].parent;
                     }
-                    current = self.nodes[i].parent;
-                }
 
-                path.reverse();
-                (!path.is_empty()).then_some((path, self.nodes[idx].count))
-            }).collect()
+                    path.reverse();
+                    (!path.is_empty()).then_some((path, self.nodes[idx].count))
+                })
+                .collect()
         })
     }
 

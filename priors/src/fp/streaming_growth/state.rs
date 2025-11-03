@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use super::super::growth::tree::FPTree;
+use std::collections::HashMap;
 
 /// State for streaming FP-Growth processing
 #[derive(Debug)]
@@ -24,6 +24,12 @@ pub enum ProcessingPhase {
     CountingFinalized,
     Building,
     ReadyToMine,
+}
+
+impl Default for StreamingState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl StreamingState {
@@ -58,7 +64,8 @@ impl StreamingState {
         let min_count = (min_support * self.num_transactions as f64) as usize;
 
         // Filter frequent items and sort by frequency (descending)
-        let mut frequent: Vec<(usize, usize)> = self.item_counts
+        let mut frequent: Vec<(usize, usize)> = self
+            .item_counts
             .iter()
             .filter(|&(_, &count)| count >= min_count)
             .map(|(&item, &count)| (item, count))
@@ -95,7 +102,10 @@ impl StreamingState {
     /// Complete building phase
     pub fn finalize_building(&mut self) -> Result<(), String> {
         if self.phase != ProcessingPhase::Building {
-            return Err(format!("Cannot finalize building in phase {:?}", self.phase));
+            return Err(format!(
+                "Cannot finalize building in phase {:?}",
+                self.phase
+            ));
         }
 
         self.phase = ProcessingPhase::ReadyToMine;

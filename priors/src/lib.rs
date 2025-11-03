@@ -1,19 +1,20 @@
 use numpy::ndarray::{Array2, s};
 use numpy::{IntoPyArray, PyArray2, PyReadonlyArray2};
-use pyo3::{Bound, PyResult, Python, pymodule, types::PyModule};
-use std::sync::Mutex;
 use once_cell::sync::Lazy;
+use pyo3::{Bound, PyResult, Python, pymodule, types::PyModule};
 use std::collections::HashMap;
+use std::sync::Mutex;
 
 pub mod fp;
 use fp::fp_growth_algorithm;
-use fp::{StreamingState, count_pass, finalize_counts as fp_finalize_counts,
-         build_pass, finalize_building as fp_finalize_building, mine_patterns};
+use fp::{
+    StreamingState, build_pass, count_pass, finalize_building as fp_finalize_building,
+    finalize_counts as fp_finalize_counts, mine_patterns,
+};
 
 // Global storage for streaming processors
-static PROCESSORS: Lazy<Mutex<HashMap<usize, StreamingState>>> = Lazy::new(|| {
-    Mutex::new(HashMap::new())
-});
+static PROCESSORS: Lazy<Mutex<HashMap<usize, StreamingState>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 static NEXT_PID: Lazy<Mutex<usize>> = Lazy::new(|| Mutex::new(0));
 
 #[pymodule]
@@ -60,13 +61,15 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
     #[pyfn(m)]
     #[pyo3(name = "create_lazy_fp_growth")]
     fn create_lazy_fp_growth_py() -> PyResult<usize> {
-        let mut pid_lock = NEXT_PID.lock()
+        let mut pid_lock = NEXT_PID
+            .lock()
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("Lock error: {}", e)))?;
         let pid = *pid_lock;
         *pid_lock += 1;
         drop(pid_lock);
 
-        let mut processors = PROCESSORS.lock()
+        let mut processors = PROCESSORS
+            .lock()
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("Lock error: {}", e)))?;
         processors.insert(pid, StreamingState::new());
 
@@ -75,56 +78,53 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
 
     #[pyfn(m)]
     #[pyo3(name = "lazy_count_pass")]
-    fn lazy_count_pass_py(
-        pid: usize,
-        transactions: PyReadonlyArray2<i32>,
-    ) -> PyResult<()> {
+    fn lazy_count_pass_py(pid: usize, transactions: PyReadonlyArray2<i32>) -> PyResult<()> {
         let transactions_view = transactions.as_array();
-        let mut processors = PROCESSORS.lock()
+        let mut processors = PROCESSORS
+            .lock()
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("Lock error: {}", e)))?;
 
-        let state = processors.get_mut(&pid)
+        let state = processors
+            .get_mut(&pid)
             .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Invalid processor ID"))?;
 
         count_pass(state, transactions_view)
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))?;
+            .map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
 
         Ok(())
     }
 
     #[pyfn(m)]
     #[pyo3(name = "lazy_finalize_counts")]
-    fn lazy_finalize_counts_py(
-        pid: usize,
-        min_support: f64,
-    ) -> PyResult<()> {
-        let mut processors = PROCESSORS.lock()
+    fn lazy_finalize_counts_py(pid: usize, min_support: f64) -> PyResult<()> {
+        let mut processors = PROCESSORS
+            .lock()
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("Lock error: {}", e)))?;
 
-        let state = processors.get_mut(&pid)
+        let state = processors
+            .get_mut(&pid)
             .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Invalid processor ID"))?;
 
         fp_finalize_counts(state, min_support)
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))?;
+            .map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
 
         Ok(())
     }
 
     #[pyfn(m)]
     #[pyo3(name = "lazy_build_pass")]
-    fn lazy_build_pass_py(
-        pid: usize,
-        transactions: PyReadonlyArray2<i32>,
-    ) -> PyResult<()> {
+    fn lazy_build_pass_py(pid: usize, transactions: PyReadonlyArray2<i32>) -> PyResult<()> {
         let transactions_view = transactions.as_array();
-        let mut processors = PROCESSORS.lock()
+        let mut processors = PROCESSORS
+            .lock()
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("Lock error: {}", e)))?;
 
-        let state = processors.get_mut(&pid)
+        let state = processors
+            .get_mut(&pid)
             .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Invalid processor ID"))?;
 
         build_pass(state, transactions_view)
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))?;
+            .map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
 
         Ok(())
     }
@@ -132,14 +132,15 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
     #[pyfn(m)]
     #[pyo3(name = "lazy_finalize_building")]
     fn lazy_finalize_building_py(pid: usize) -> PyResult<()> {
-        let mut processors = PROCESSORS.lock()
+        let mut processors = PROCESSORS
+            .lock()
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("Lock error: {}", e)))?;
 
-        let state = processors.get_mut(&pid)
+        let state = processors
+            .get_mut(&pid)
             .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Invalid processor ID"))?;
 
-        fp_finalize_building(state)
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))?;
+        fp_finalize_building(state).map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
 
         Ok(())
     }
@@ -151,14 +152,16 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
         pid: usize,
         min_support: f64,
     ) -> PyResult<Vec<Bound<'py, PyArray2<usize>>>> {
-        let processors = PROCESSORS.lock()
+        let processors = PROCESSORS
+            .lock()
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("Lock error: {}", e)))?;
 
-        let state = processors.get(&pid)
+        let state = processors
+            .get(&pid)
             .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Invalid processor ID"))?;
 
         let frequent_levels = mine_patterns(state, min_support)
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))?;
+            .map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
 
         let mut result = Vec::new();
 
@@ -189,10 +192,12 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
     #[pyfn(m)]
     #[pyo3(name = "lazy_cleanup")]
     fn lazy_cleanup_py(pid: usize) -> PyResult<()> {
-        let mut processors = PROCESSORS.lock()
+        let mut processors = PROCESSORS
+            .lock()
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("Lock error: {}", e)))?;
 
-        processors.remove(&pid)
+        processors
+            .remove(&pid)
             .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Invalid processor ID"))?;
 
         Ok(())
@@ -211,9 +216,7 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
         let num_transactions = transactions_view.nrows();
 
         // Default chunk size: max(1000, num_transactions / 10)
-        let chunk_size = chunk_size.unwrap_or_else(|| {
-            std::cmp::max(1000, num_transactions / 10)
-        });
+        let chunk_size = chunk_size.unwrap_or_else(|| std::cmp::max(1000, num_transactions / 10));
 
         // Create a streaming state
         let mut state = StreamingState::new();
@@ -224,12 +227,12 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
             let chunk = transactions_view.slice(s![start..end, ..]);
 
             count_pass(&mut state, chunk)
-                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))?;
+                .map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
         }
 
         // Phase 2: Finalize counts
         fp_finalize_counts(&mut state, min_support)
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))?;
+            .map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
 
         // Phase 3: Build pass (process in chunks)
         for start in (0..num_transactions).step_by(chunk_size) {
@@ -237,16 +240,16 @@ fn priors<'py>(m: &Bound<'py, PyModule>) -> PyResult<()> {
             let chunk = transactions_view.slice(s![start..end, ..]);
 
             build_pass(&mut state, chunk)
-                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))?;
+                .map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
         }
 
         // Phase 4: Finalize building
         fp_finalize_building(&mut state)
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))?;
+            .map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
 
         // Phase 5: Mine patterns
         let frequent_levels = mine_patterns(&state, min_support)
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e))?;
+            .map_err(pyo3::exceptions::PyRuntimeError::new_err)?;
 
         // Convert to Python arrays (same as fp_growth)
         let mut result = Vec::new();
