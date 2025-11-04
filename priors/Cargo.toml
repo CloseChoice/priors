@@ -10,7 +10,7 @@ crate-type = ["cdylib", "rlib"]
 
 [features]
 python = ["pyo3/extension-module"]
-default = []  # rlib for benchmarks and tests
+default = ["python"]
 
 [dependencies]
 pyo3 = { version = "0.25.1", features = ["abi3-py310"] }

@@ -13,7 +13,11 @@ pub struct FrequentLevel {
 
 impl ItemsetStorage {
     pub(crate) fn new() -> Self {
-        Self { items: Vec::new(), offsets: Vec::new(), supports: Vec::new() }
+        Self {
+            items: Vec::new(),
+            offsets: Vec::new(),
+            supports: Vec::new(),
+        }
     }
 
     pub(crate) fn add_itemset(&mut self, items: Vec<usize>) {
@@ -41,7 +45,10 @@ impl ItemsetStorage {
 
 impl FrequentLevel {
     pub fn new(itemset_size: usize) -> Self {
-        Self { storage: ItemsetStorage::new(), itemset_size }
+        Self {
+            storage: ItemsetStorage::new(),
+            itemset_size,
+        }
     }
 
     pub fn add_itemset(&mut self, items: Vec<usize>) -> usize {

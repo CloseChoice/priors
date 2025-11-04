@@ -1,13 +1,19 @@
 use super::builder::{build_conditional_fp_tree, build_fp_tree, get_conditional_frequent_items};
-use crate::fp::utils::FrequentLevel;
 use super::tree::FPTree;
+use crate::fp::utils::FrequentLevel;
 use numpy::ndarray::ArrayView2;
 use rayon::prelude::*;
 
 pub fn fp_growth_algorithm(transactions: ArrayView2<i32>, min_support: f64) -> Vec<FrequentLevel> {
     let num_transactions = transactions.shape()[0];
     let (fp_tree, frequent_items) = build_fp_tree(transactions, min_support);
-    fp_growth_recursive(&fp_tree, &frequent_items, &[], min_support, num_transactions)
+    fp_growth_recursive(
+        &fp_tree,
+        &frequent_items,
+        &[],
+        min_support,
+        num_transactions,
+    )
 }
 
 fn fp_growth_recursive(
@@ -32,7 +38,9 @@ fn fp_growth_recursive(
         .par_iter()
         .rev()
         .filter_map(|&item| {
-            let support = fp_tree.header_table.get(&item)?
+            let support = fp_tree
+                .header_table
+                .get(&item)?
                 .iter()
                 .map(|&idx| fp_tree.nodes[idx].count)
                 .sum::<usize>();
@@ -52,7 +60,13 @@ fn fp_growth_recursive(
                 let cond_items = get_conditional_frequent_items(&cond_tree, min_count);
 
                 if !cond_items.is_empty() {
-                    result.extend(fp_growth_recursive(&cond_tree, &cond_items, &new_pattern, min_support, num_transactions));
+                    result.extend(fp_growth_recursive(
+                        &cond_tree,
+                        &cond_items,
+                        &new_pattern,
+                        min_support,
+                        num_transactions,
+                    ));
                 }
             }
 
@@ -71,15 +85,24 @@ fn fp_growth_recursive(
 
             // Adjust offsets when merging
             let current_len = merged[size - 1].storage.items.len();
-            merged[size - 1].storage.items.extend_from_slice(&level.storage.items);
+            merged[size - 1]
+                .storage
+                .items
+                .extend_from_slice(&level.storage.items);
 
             // Adjust each offset by the current length of the merged items array
             for (start, len) in level.storage.offsets {
-                merged[size - 1].storage.offsets.push((current_len + start, len));
+                merged[size - 1]
+                    .storage
+                    .offsets
+                    .push((current_len + start, len));
             }
 
             // Copy support values
-            merged[size - 1].storage.supports.extend_from_slice(&level.storage.supports);
+            merged[size - 1]
+                .storage
+                .supports
+                .extend_from_slice(&level.storage.supports);
         }
     }
     merged

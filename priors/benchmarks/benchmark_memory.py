@@ -3,13 +3,15 @@ Memory efficiency benchmarks for priors FP-Growth.
 Run with pytest-benchmark or as standalone script.
 """
 
+import gc
+import time
+from typing import Dict, List, Tuple
+
 import numpy as np
 import pandas as pd
 import pytest
+
 import priors
-import time
-import gc
-from typing import Dict, List, Tuple
 
 try:
     import psutil
@@ -23,6 +25,7 @@ except ImportError:
     # Fallback for when running without package installation
     import sys
     from pathlib import Path
+
     parent_dir = Path(__file__).parent.parent
     sys.path.insert(0, str(parent_dir))
     from utils import count_itemsets, generate_transactions
@@ -31,6 +34,7 @@ except ImportError:
 # ============================================================================
 # Helper Functions
 # ============================================================================
+
 
 def get_memory_usage():
     """Get current memory usage in MB."""
@@ -56,7 +60,7 @@ def run_streaming_fp_growth(transactions, min_support, chunk_size=None):
         chunk_size = max(1, len(transactions) // 2)
 
     # Check if lazy functions exist
-    if not hasattr(priors, 'create_lazy_fp_growth'):
+    if not hasattr(priors, "create_lazy_fp_growth"):
         pytest.skip("Lazy FP-Growth functions not available")
 
     pid = priors.create_lazy_fp_growth()
@@ -64,7 +68,7 @@ def run_streaming_fp_growth(transactions, min_support, chunk_size=None):
     try:
         # Counting pass
         for i in range(0, len(transactions), chunk_size):
-            chunk = transactions[i:i + chunk_size]
+            chunk = transactions[i : i + chunk_size]
             priors.lazy_count_pass(pid, chunk)
 
         # Finalize counts
@@ -72,7 +76,7 @@ def run_streaming_fp_growth(transactions, min_support, chunk_size=None):
 
         # Building pass
         for i in range(0, len(transactions), chunk_size):
-            chunk = transactions[i:i + chunk_size]
+            chunk = transactions[i : i + chunk_size]
             priors.lazy_build_pass(pid, chunk)
 
         priors.lazy_finalize_building(pid)
@@ -92,16 +96,23 @@ def run_streaming_fp_growth(transactions, min_support, chunk_size=None):
 memory_benchmark_results = []
 
 
-def add_memory_benchmark(dataset_size: str, regular_memory: float, lazy_memory: float,
-                        memory_savings: float, time_overhead: float):
+def add_memory_benchmark(
+    dataset_size: str,
+    regular_memory: float,
+    lazy_memory: float,
+    memory_savings: float,
+    time_overhead: float,
+):
     """Add memory benchmark result."""
-    memory_benchmark_results.append({
-        'Dataset Size': dataset_size,
-        'Regular Memory': f"{regular_memory:.0f} MB",
-        'Lazy Memory': f"{lazy_memory:.0f} MB",
-        'Memory Savings': f"{memory_savings:.1f}x",
-        'Time Overhead': f"{time_overhead:.1f}x"
-    })
+    memory_benchmark_results.append(
+        {
+            "Dataset Size": dataset_size,
+            "Regular Memory": f"{regular_memory:.0f} MB",
+            "Lazy Memory": f"{lazy_memory:.0f} MB",
+            "Memory Savings": f"{memory_savings:.1f}x",
+            "Time Overhead": f"{time_overhead:.1f}x",
+        }
+    )
 
 
 class TestMemoryEfficiency:
@@ -144,17 +155,20 @@ class TestMemoryEfficiency:
 class TestMemoryBenchmarks:
     """Benchmarks for memory efficiency: Lazy vs Regular FP-Growth."""
 
-    @pytest.mark.parametrize("num_trans,num_items,avg_size,min_support", [
-        (50000, 100, 15, 0.03),
-        (200000, 150, 20, 0.02),
-        (500000, 200, 25, 0.01),
-    ])
+    @pytest.mark.parametrize(
+        "num_trans,num_items,avg_size,min_support",
+        [
+            (50000, 100, 15, 0.03),
+            (200000, 150, 20, 0.02),
+            (500000, 200, 25, 0.01),
+        ],
+    )
     def test_memory_comparison(self, num_trans, num_items, avg_size, min_support):
         """Compare memory usage and time overhead."""
         if not psutil:
             pytest.skip("psutil not available for memory benchmarking")
 
-        if not hasattr(priors, 'create_lazy_fp_growth'):
+        if not hasattr(priors, "create_lazy_fp_growth"):
             pytest.skip("Lazy FP-Growth functions not available")
 
         transactions = generate_transactions(num_trans, num_items, avg_size, seed=42)
@@ -189,8 +203,12 @@ class TestMemoryBenchmarks:
             lazy_mem = regular_mem * 0.4  # Estimate 40% of regular
             memory_savings = regular_mem / lazy_mem
 
-        add_memory_benchmark(dataset_size, regular_mem, lazy_mem, memory_savings, time_overhead)
-        print(f"{dataset_size}: Regular={regular_mem:.0f}MB, Lazy={lazy_mem:.0f}MB, Savings={memory_savings:.1f}x, Overhead={time_overhead:.1f}x")
+        add_memory_benchmark(
+            dataset_size, regular_mem, lazy_mem, memory_savings, time_overhead
+        )
+        print(
+            f"{dataset_size}: Regular={regular_mem:.0f}MB, Lazy={lazy_mem:.0f}MB, Savings={memory_savings:.1f}x, Overhead={time_overhead:.1f}x"
+        )
 
 
 def print_memory_benchmarks():
@@ -205,11 +223,15 @@ def print_memory_benchmarks():
     df = pd.DataFrame(memory_benchmark_results)
 
     # Print formatted table
-    print(f"{'Dataset Size':<15} {'Regular Memory':<15} {'Lazy Memory':<15} {'Memory Savings':<15} {'Time Overhead':<15}")
+    print(
+        f"{'Dataset Size':<15} {'Regular Memory':<15} {'Lazy Memory':<15} {'Memory Savings':<15} {'Time Overhead':<15}"
+    )
     print("-" * 80)
 
     for _, row in df.iterrows():
-        print(f"{row['Dataset Size']:<15} {row['Regular Memory']:<15} {row['Lazy Memory']:<15} {row['Memory Savings']:<15} {row['Time Overhead']:<15}")
+        print(
+            f"{row['Dataset Size']:<15} {row['Regular Memory']:<15} {row['Lazy Memory']:<15} {row['Memory Savings']:<15} {row['Time Overhead']:<15}"
+        )
 
     print("=" * 80)
 
@@ -217,6 +239,7 @@ def print_memory_benchmarks():
 @pytest.fixture(scope="session", autouse=True)
 def print_summary_on_exit(request):
     """Print summary table after all benchmarks complete."""
+
     def finalize():
         print_memory_benchmarks()
         print("=" * 80 + "\n")

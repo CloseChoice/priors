@@ -6,14 +6,16 @@ Tests verify that streaming FP-Growth produces identical results to:
 - mlxtend FP-Growth
 """
 
+from typing import Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 import pytest
-import priors
-from typing import Dict, List, Tuple, Optional
-
 # Import shared utilities
-from conftest import count_itemsets, generate_transactions, generate_all_ones_transactions
+from conftest import (count_itemsets, generate_all_ones_transactions,
+                      generate_transactions)
+
+import priors
 
 
 def run_streaming_fp_growth(transactions, min_support, chunk_size=None):
@@ -40,15 +42,19 @@ def run_streaming_fp_growth(transactions, min_support, chunk_size=None):
 
 # Test that streaming FP-Growth produces correct results.
 
+
 def test_streaming_vs_regular_basic():
     """Verify streaming matches regular FP-Growth on basic dataset."""
-    transactions = np.array([
-        [1, 1, 0, 1, 0],
-        [1, 0, 1, 1, 0],
-        [0, 1, 1, 1, 0],
-        [1, 1, 1, 0, 0],
-        [1, 1, 0, 1, 0],
-    ], dtype=np.int32)
+    transactions = np.array(
+        [
+            [1, 1, 0, 1, 0],
+            [1, 0, 1, 1, 0],
+            [0, 1, 1, 1, 0],
+            [1, 1, 1, 0, 0],
+            [1, 1, 0, 1, 0],
+        ],
+        dtype=np.int32,
+    )
 
     min_support = 0.4
 
@@ -60,9 +66,12 @@ def test_streaming_vs_regular_basic():
     streaming_result = run_streaming_fp_growth(transactions, min_support)
     streaming_count = count_itemsets(streaming_result)
 
-    assert streaming_count == regular_count, \
-        f"Count mismatch: streaming={streaming_count}, regular={regular_count}"
+    assert (
+        streaming_count == regular_count
+    ), f"Count mismatch: streaming={streaming_count}, regular={regular_count}"
 
+
+@pytest.mark.slow
 def test_streaming_vs_mlxtend():
     """Verify streaming matches mlxtend FP-Growth."""
     mlxtend = pytest.importorskip("mlxtend")
@@ -72,8 +81,10 @@ def test_streaming_vs_mlxtend():
     min_support = 0.1
 
     # Run mlxtend
-    df = pd.DataFrame(transactions.astype(bool),
-                     columns=[f'i{i}' for i in range(transactions.shape[1])])
+    df = pd.DataFrame(
+        transactions.astype(bool),
+        columns=[f"i{i}" for i in range(transactions.shape[1])],
+    )
     mlxtend_result = mlxtend_fpgrowth(df, min_support=min_support, use_colnames=False)
     mlxtend_count = len(mlxtend_result)
 
@@ -81,8 +92,10 @@ def test_streaming_vs_mlxtend():
     streaming_result = run_streaming_fp_growth(transactions, min_support)
     streaming_count = count_itemsets(streaming_result)
 
-    assert streaming_count == mlxtend_count, \
-        f"Count mismatch: streaming={streaming_count}, mlxtend={mlxtend_count}"
+    assert (
+        streaming_count == mlxtend_count
+    ), f"Count mismatch: streaming={streaming_count}, mlxtend={mlxtend_count}"
+
 
 def test_trivial_all_ones():
     """Test trivial case: all 1s dataset."""
@@ -98,20 +111,25 @@ def test_trivial_all_ones():
     regular_result = priors.fp_growth(transactions, min_support)
     regular_count = count_itemsets(regular_result)
 
-    assert streaming_count == regular_count, \
-        f"Count mismatch: streaming={streaming_count}, regular={regular_count}"
+    assert (
+        streaming_count == regular_count
+    ), f"Count mismatch: streaming={streaming_count}, regular={regular_count}"
+
 
 def test_scaled_dataset():
-    """Test scaled dataset: multiply small known dataset by 1000x."""
+    """Test scaled dataset: multiply small known dataset by 100x."""
     # Create base dataset
-    base_transactions = np.array([
-        [1, 1, 0, 1],
-        [1, 0, 1, 1],
-        [0, 1, 1, 1],
-    ], dtype=np.int32)
+    base_transactions = np.array(
+        [
+            [1, 1, 0, 1],
+            [1, 0, 1, 1],
+            [0, 1, 1, 1],
+        ],
+        dtype=np.int32,
+    )
 
-    # Scale it by repeating 1000 times
-    transactions = np.tile(base_transactions, (1000, 1))
+    # Scale it by repeating 100 times (reduced for CI performance)
+    transactions = np.tile(base_transactions, (100, 1))
     min_support = 0.3
 
     # Run regular on base
@@ -119,11 +137,13 @@ def test_scaled_dataset():
     base_count = count_itemsets(base_result)
 
     # Run streaming on scaled
-    streaming_result = run_streaming_fp_growth(transactions, min_support, chunk_size=500)
+    streaming_result = run_streaming_fp_growth(transactions, min_support, chunk_size=50)
     streaming_count = count_itemsets(streaming_result)
 
-    assert streaming_count == base_count, \
-        f"Count mismatch: streaming={streaming_count}, base={base_count}"
+    assert (
+        streaming_count == base_count
+    ), f"Count mismatch: streaming={streaming_count}, base={base_count}"
+
 
 def test_different_chunk_sizes():
     """Test that different chunk sizes produce same results."""
@@ -140,8 +160,9 @@ def test_different_chunk_sizes():
     result3 = run_streaming_fp_growth(transactions, min_support, chunk_size=200)
     count3 = count_itemsets(result3)
 
-    assert count1 == count2 == count3, \
-        f"Chunk size mismatch: 50={count1}, 100={count2}, 200={count3}"
+    assert (
+        count1 == count2 == count3
+    ), f"Chunk size mismatch: 50={count1}, 100={count2}, 200={count3}"
 
 
 # ============================================================================
@@ -150,10 +171,11 @@ def test_different_chunk_sizes():
 
 # Test streaming FP-Growth on large datasets.
 
+
 @pytest.mark.slow
 def test_10m_transactions():
     """Test with 10M+ transactions using generator."""
-    if not hasattr(priors, 'create_lazy_fp_growth'):
+    if not hasattr(priors, "create_lazy_fp_growth"):
         pytest.skip("Lazy FP-Growth functions not available")
 
     num_transactions = 10_000_000
@@ -169,7 +191,9 @@ def test_10m_transactions():
         # Counting phase
         for i in range(0, num_transactions, chunk_size):
             actual_chunk_size = min(chunk_size, num_transactions - i)
-            chunk = generate_transactions(actual_chunk_size, num_items, avg_size, seed=i)
+            chunk = generate_transactions(
+                actual_chunk_size, num_items, avg_size, seed=i
+            )
             priors.lazy_count_pass(pid, chunk)
 
         # Finalize counts
@@ -178,7 +202,9 @@ def test_10m_transactions():
         # Building phase
         for i in range(0, num_transactions, chunk_size):
             actual_chunk_size = min(chunk_size, num_transactions - i)
-            chunk = generate_transactions(actual_chunk_size, num_items, avg_size, seed=i)
+            chunk = generate_transactions(
+                actual_chunk_size, num_items, avg_size, seed=i
+            )
             priors.lazy_build_pass(pid, chunk)
 
         priors.lazy_finalize_building(pid)

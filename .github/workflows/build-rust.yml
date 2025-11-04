@@ -1,0 +1,81 @@
+name: Build Rust Library
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform.target }}
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform.target }}
+
+      - name: Install musl tools
+        if: matrix.platform.target == 'x86_64-unknown-linux-musl'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+
+      - name: Build
+        working-directory: priors
+        run: cargo build --release --target ${{ matrix.platform.target }}
+
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
+        working-directory: priors
+        run: |
+          cd target/${{ matrix.platform.target }}/release
+          tar czf ../../../libpriors-${{ matrix.platform.target }}.tar.gz libpriors.* || tar czf ../../../libpriors-${{ matrix.platform.target }}.tar.gz *.dylib *.so *.a
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        working-directory: priors
+        shell: bash
+        run: |
+          cd target/${{ matrix.platform.target }}/release
+          7z a ../../../libpriors-${{ matrix.platform.target }}.zip *.dll *.lib
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-${{ matrix.platform.target }}
+          path: |
+            priors/libpriors-*.tar.gz
+            priors/libpriors-*.zip
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: rust-*
+          path: dist
+          merge-multiple: true
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*

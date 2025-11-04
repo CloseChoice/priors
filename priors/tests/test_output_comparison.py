@@ -3,12 +3,14 @@ Comprehensive output comparison test for all priors FP-Growth functions.
 Prints all results to console for manual verification.
 """
 
+import time
+from typing import List
+
 import numpy as np
 import pandas as pd
-import time
-import priors
-from typing import List
 from numpy.typing import NDArray
+
+import priors
 
 
 def print_separator(title: str = ""):
@@ -44,18 +46,21 @@ def generate_test_data(size: str = "small"):
     """Generate test datasets."""
     if size == "small":
         # Small dataset: 10 transactions, 5 items
-        return np.array([
-            [1, 1, 0, 1, 0],
-            [1, 0, 1, 1, 0],
-            [0, 1, 1, 1, 0],
-            [1, 1, 1, 0, 0],
-            [1, 1, 0, 1, 0],
-            [1, 0, 1, 1, 1],
-            [1, 1, 1, 0, 0],
-            [1, 1, 0, 1, 0],
-            [0, 1, 1, 1, 0],
-            [1, 1, 1, 1, 0],
-        ], dtype=np.int32)
+        return np.array(
+            [
+                [1, 1, 0, 1, 0],
+                [1, 0, 1, 1, 0],
+                [0, 1, 1, 1, 0],
+                [1, 1, 1, 0, 0],
+                [1, 1, 0, 1, 0],
+                [1, 0, 1, 1, 1],
+                [1, 1, 1, 0, 0],
+                [1, 1, 0, 1, 0],
+                [0, 1, 1, 1, 0],
+                [1, 1, 1, 1, 0],
+            ],
+            dtype=np.int32,
+        )
     elif size == "medium":
         # Medium dataset: random but reproducible
         np.random.seed(42)
@@ -153,9 +158,11 @@ def test_all_functions_with_output():
             start = time.time()
             df = pd.DataFrame(
                 transactions.astype(bool),
-                columns=[f'item_{i}' for i in range(transactions.shape[1])]
+                columns=[f"item_{i}" for i in range(transactions.shape[1])],
             )
-            mlxtend_result = mlxtend_fpgrowth(df, min_support=min_support, use_colnames=False)
+            mlxtend_result = mlxtend_fpgrowth(
+                df, min_support=min_support, use_colnames=False
+            )
             time_mlxtend = time.time() - start
 
             print(f"Execution time: {time_mlxtend:.4f}s")
@@ -165,13 +172,15 @@ def test_all_functions_with_output():
 
             # Group by itemset size
             if len(mlxtend_result) > 0:
-                mlxtend_result['size'] = mlxtend_result['itemsets'].apply(lambda x: len(x))
-                for size in sorted(mlxtend_result['size'].unique()):
-                    size_df = mlxtend_result[mlxtend_result['size'] == size]
+                mlxtend_result["size"] = mlxtend_result["itemsets"].apply(
+                    lambda x: len(x)
+                )
+                for size in sorted(mlxtend_result["size"].unique()):
+                    size_df = mlxtend_result[mlxtend_result["size"] == size]
                     print(f"  Level {size} ({size}-itemsets): {len(size_df)} itemsets")
                     for idx, row in size_df.iterrows():
-                        itemset = sorted(list(row['itemsets']))
-                        support = row['support']
+                        itemset = sorted(list(row["itemsets"]))
+                        support = row["support"]
                         print(f"    {set(itemset)} (support: {support:.4f})")
 
         except ImportError:
@@ -205,7 +214,7 @@ def test_all_functions_with_output():
             print(f"  mlxtend:            {time_mlxtend:.4f}s")
 
         print("\nConsistency Check:")
-        all_match = (count_normal == count_streaming == count_lazy)
+        all_match = count_normal == count_streaming == count_lazy
         if time_mlxtend is not None:
             all_match = all_match and (count_normal == len(mlxtend_result))
 
@@ -247,7 +256,7 @@ def test_all_functions_with_output():
         if time_mlxtend is not None:
             itemsets_mlxtend = set()
             for _, row in mlxtend_result.iterrows():
-                itemsets_mlxtend.add(frozenset(row['itemsets']))
+                itemsets_mlxtend.add(frozenset(row["itemsets"]))
 
             if itemsets_normal == itemsets_mlxtend:
                 print("  ✓ fp_growth == mlxtend")
