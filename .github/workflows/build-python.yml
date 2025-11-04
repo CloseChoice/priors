@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_call:
   workflow_dispatch:
 
 permissions:
@@ -51,7 +52,7 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_call'
     needs: [linux, sdist]
     environment:
       name: pypi
