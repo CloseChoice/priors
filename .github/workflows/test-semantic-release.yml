@@ -5,6 +5,12 @@ on:
     branches:
       - 'feat/**'
   workflow_dispatch:
+    inputs:
+      publish_to_testpypi:
+        description: 'Publish to TestPyPI?'
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -152,3 +158,4 @@ jobs:
     secrets: inherit
     with:
       version: ${{ needs.semantic-release.outputs.new-release-version }}
+      skip_publish: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.publish_to_testpypi != 'true' }}
