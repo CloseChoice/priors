@@ -3,7 +3,7 @@
     "main",
     {
       "name": "feat/**",
-      "prerelease": "rc"
+      "prerelease": "dev"
     }
   ],
   "plugins": [
@@ -22,7 +22,7 @@
           { "type": "refactor", "release": "patch" },
           { "type": "test", "release": false },
           { "type": "build", "release": false },
-          { "type": "ci", "release": "patch" },
+          { "type": "ci", "release": false },
           { "breaking": true, "release": "major" }
         ]
       }
