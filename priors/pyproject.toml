@@ -5,6 +5,8 @@ requires = ["maturin>=1.0,<2.0"]
 [project]
 name = "priors"
 version = "0.1.0"
+description = "Fast frequent pattern mining library"
+readme = "../README.md"
 dependencies = ["numpy",
                 ]
 
