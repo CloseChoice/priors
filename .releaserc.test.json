@@ -3,11 +3,11 @@
     "main",
     {
       "name": "feat/**",
-      "prerelease": "dev"
+      "prerelease": true
     },
     {
       "name": "ci/**",
-      "prerelease": "dev"
+      "prerelease": true
     }
   ],
   "plugins": [
