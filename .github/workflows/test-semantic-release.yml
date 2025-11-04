@@ -124,13 +124,25 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npx semantic-release --extends ./.releaserc.test.json
+          set +e
+          npx semantic-release --extends ./.releaserc.test.json --debug
+          RESULT=$?
+          set -e
+
+          echo "Semantic-release exit code: $RESULT"
+
           if [ -f .next-version ]; then
-            echo "new-release-version=$(cat .next-version)" >> $GITHUB_OUTPUT
+            VERSION=$(cat .next-version)
+            echo "New version found: $VERSION"
+            echo "new-release-version=$VERSION" >> $GITHUB_OUTPUT
             echo "new-release-published=true" >> $GITHUB_OUTPUT
           else
+            echo "No new version created"
             echo "new-release-published=false" >> $GITHUB_OUTPUT
           fi
+
+          echo "Output values:"
+          cat $GITHUB_OUTPUT
 
   build-and-publish:
     name: Build & Publish to TestPyPI
