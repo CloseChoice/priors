@@ -7,14 +7,12 @@ Benchmark comparison between different Apriori implementations:
 
 import random
 import time
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
-import pytest
 from efficient_apriori import apriori as efficient_apriori
 from mlxtend.frequent_patterns import apriori as mlxtend_apriori
-from mlxtend.preprocessing import TransactionEncoder
 
 # Import the implementations
 import priors
@@ -22,7 +20,7 @@ import priors
 
 def generate_random_transactions(
     num_transactions: int, num_items: int, avg_transaction_size: int, seed: int = 42
-) -> Tuple[np.ndarray, List[List[int]]]:
+) -> tuple[np.ndarray, list[list[int]]]:
     """
     Generate random transaction data for benchmarking.
 
@@ -37,9 +35,7 @@ def generate_random_transactions(
 
     for i in range(num_transactions):
         # Vary transaction size around the average
-        size = max(
-            1, int(np.random.normal(avg_transaction_size, avg_transaction_size * 0.3))
-        )
+        size = max(1, int(np.random.normal(avg_transaction_size, avg_transaction_size * 0.3)))
         size = min(size, num_items)
 
         # Select random items for this transaction
@@ -56,9 +52,9 @@ def generate_random_transactions(
 def generate_correlated_transactions(
     num_transactions: int,
     num_items: int,
-    correlation_groups: List[List[int]],
+    correlation_groups: list[list[int]],
     seed: int = 42,
-) -> Tuple[np.ndarray, List[List[int]]]:
+) -> tuple[np.ndarray, list[list[int]]]:
     """
     Generate transaction data with correlated items for more interesting patterns.
     """
@@ -103,7 +99,7 @@ def generate_correlated_transactions(
 
 
 # Wrapper functions for benchmarking
-def run_priors_apriori(binary_matrix: np.ndarray, min_support: float) -> List[Any]:
+def run_priors_apriori(binary_matrix: np.ndarray, min_support: float) -> list[Any]:
     """Run our Rust implementation"""
     return priors.apriori(binary_matrix, min_support)
 
@@ -111,9 +107,7 @@ def run_priors_apriori(binary_matrix: np.ndarray, min_support: float) -> List[An
 def run_mlxtend_apriori(binary_matrix: np.ndarray, min_support: float) -> pd.DataFrame:
     """Run mlxtend implementation"""
     # Convert binary matrix to DataFrame
-    df = pd.DataFrame(
-        binary_matrix, columns=[f"item_{i}" for i in range(binary_matrix.shape[1])]
-    )
+    df = pd.DataFrame(binary_matrix, columns=[f"item_{i}" for i in range(binary_matrix.shape[1])])
     df = df.astype(bool)
 
     # Run apriori
@@ -122,8 +116,8 @@ def run_mlxtend_apriori(binary_matrix: np.ndarray, min_support: float) -> pd.Dat
 
 
 def run_efficient_apriori(
-    transaction_lists: List[List[int]], min_support: float, num_transactions: int
-) -> Tuple[Any, Any]:
+    transaction_lists: list[list[int]], min_support: float, num_transactions: int
+) -> tuple[Any, Any]:
     """Run efficient-apriori implementation"""
     # Convert to the format expected by efficient-apriori
     transactions_tuples = [tuple(transaction) for transaction in transaction_lists]
@@ -137,22 +131,22 @@ class BenchmarkDatasets:
     """Pre-generated datasets for consistent benchmarking"""
 
     @staticmethod
-    def small_dataset() -> Tuple[np.ndarray, List[List[int]]]:
+    def small_dataset() -> tuple[np.ndarray, list[list[int]]]:
         """Small dataset: 1000 transactions, 20 items"""
         return generate_random_transactions(1000, 20, 5, seed=42)
 
     @staticmethod
-    def medium_dataset() -> Tuple[np.ndarray, List[List[int]]]:
+    def medium_dataset() -> tuple[np.ndarray, list[list[int]]]:
         """Medium dataset: 5000 transactions, 50 items"""
         return generate_random_transactions(5000, 50, 8, seed=42)
 
     @staticmethod
-    def large_dataset() -> Tuple[np.ndarray, List[List[int]]]:
+    def large_dataset() -> tuple[np.ndarray, list[list[int]]]:
         """Large dataset: 10000 transactions, 100 items"""
         return generate_random_transactions(10000, 100, 12, seed=42)
 
     @staticmethod
-    def correlated_dataset() -> Tuple[np.ndarray, List[List[int]]]:
+    def correlated_dataset() -> tuple[np.ndarray, list[list[int]]]:
         """Dataset with correlated items for interesting patterns"""
         correlation_groups = [
             [0, 1, 2],  # Group 1: items 0, 1, 2 often appear together
@@ -246,9 +240,7 @@ class TestBenchmarkCorrelated:
     """Benchmarks for correlated dataset (more interesting patterns)"""
 
     def setup_method(self):
-        self.binary_matrix, self.transaction_lists = (
-            BenchmarkDatasets.correlated_dataset()
-        )
+        self.binary_matrix, self.transaction_lists = BenchmarkDatasets.correlated_dataset()
         self.min_support = 0.05  # 5% support
         self.num_transactions = len(self.transaction_lists)
 
@@ -280,9 +272,7 @@ def test_correctness_comparison():
     # Run all implementations
     priors_result = run_priors_apriori(binary_matrix, min_support)
     mlxtend_result = run_mlxtend_apriori(binary_matrix, min_support)
-    efficient_result, _ = run_efficient_apriori(
-        transaction_lists, min_support, num_transactions
-    )
+    efficient_result, _ = run_efficient_apriori(transaction_lists, min_support, num_transactions)
 
     # Extract 1-itemsets for comparison
     priors_1_itemsets = set()
@@ -294,9 +284,7 @@ def test_correctness_comparison():
     mlxtend_1_itemsets = set()
     for _, row in mlxtend_result.iterrows():
         itemset = tuple(
-            sorted(
-                [int(item.split("_")[1]) for item in row["itemsets"] if row["itemsets"]]
-            )
+            sorted([int(item.split("_")[1]) for item in row["itemsets"] if row["itemsets"]])
         )
         if len(itemset) == 1:
             mlxtend_1_itemsets.add(itemset)
@@ -340,9 +328,7 @@ if __name__ == "__main__":
 
     # Time efficient-apriori
     start = time.time()
-    efficient_result, _ = run_efficient_apriori(
-        transaction_lists, min_support, num_transactions
-    )
+    efficient_result, _ = run_efficient_apriori(transaction_lists, min_support, num_transactions)
     efficient_time = time.time() - start
 
     print(f"Priors (Rust): {priors_time:.4f}s")
@@ -350,5 +336,5 @@ if __name__ == "__main__":
     print(f"Efficient-apriori: {efficient_time:.4f}s")
 
     if priors_time > 0:
-        print(f"MLxtend vs Priors: {mlxtend_time/priors_time:.2f}x")
-        print(f"Efficient-apriori vs Priors: {efficient_time/priors_time:.2f}x")
+        print(f"MLxtend vs Priors: {mlxtend_time / priors_time:.2f}x")
+        print(f"Efficient-apriori vs Priors: {efficient_time / priors_time:.2f}x")

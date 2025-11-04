@@ -47,7 +47,7 @@ def analyze_benchmark_results():
         print("No benchmark results found!")
         return
 
-    with open(results_file, "r") as f:
+    with open(results_file) as f:
         data = json.load(f)
 
     benchmarks = data["benchmarks"]

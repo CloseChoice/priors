@@ -3,11 +3,10 @@ Comprehensive comparison tests between priors FP-Growth and other libraries.
 Tests correctness and edge cases.
 """
 
-from typing import Dict, List, Optional, Set, Tuple
-
 import numpy as np
 import pandas as pd
 import pytest
+
 # Import shared utilities
 from conftest import count_itemsets, generate_transactions
 
@@ -22,7 +21,6 @@ import priors
 
 def test_fpgrowth_vs_mlxtend_basic():
     """Compare priors FP-Growth with mlxtend on basic dataset."""
-    import pandas.testing as tm
 
     pytest.importorskip("mlxtend")
     # Import the conversion utility
@@ -50,9 +48,7 @@ def test_fpgrowth_vs_mlxtend_basic():
 
     # Run priors - now returns (itemsets_list, supports_list) tuple
     itemsets_list, supports_list = priors.fp_growth(transactions, min_support)
-    priors_result = fp_growth_to_dataframe(
-        itemsets_list, supports_list, len(transactions)
-    )
+    priors_result = fp_growth_to_dataframe(itemsets_list, supports_list, len(transactions))
 
     # Run mlxtend
     df = pd.DataFrame(
@@ -70,23 +66,21 @@ def test_fpgrowth_vs_mlxtend_basic():
     # Compare DataFrames
     priors_count = len(priors_result)
     mlxtend_count = len(mlxtend_result)
-    assert (
-        priors_count == mlxtend_count
-    ), f"Itemset count mismatch: priors={priors_count}, mlxtend={mlxtend_count}"
+    assert priors_count == mlxtend_count, (
+        f"Itemset count mismatch: priors={priors_count}, mlxtend={mlxtend_count}"
+    )
 
     # Compare itemsets and supports (order-independent)
     priors_set = {
-        (frozenset(row["itemsets"]), row["support"])
-        for _, row in priors_result.iterrows()
+        (frozenset(row["itemsets"]), row["support"]) for _, row in priors_result.iterrows()
     }
     mlxtend_set = {
-        (frozenset(row["itemsets"]), row["support"])
-        for _, row in mlxtend_result.iterrows()
+        (frozenset(row["itemsets"]), row["support"]) for _, row in mlxtend_result.iterrows()
     }
 
-    assert (
-        priors_set == mlxtend_set
-    ), f"Itemsets mismatch:\nPriors only: {priors_set - mlxtend_set}\nMlxtend only: {mlxtend_set - priors_set}"
+    assert priors_set == mlxtend_set, (
+        f"Itemsets mismatch:\nPriors only: {priors_set - mlxtend_set}\nMlxtend only: {mlxtend_set - priors_set}"
+    )
 
 
 def test_fpgrowth_vs_efficient_apriori_basic():
@@ -110,15 +104,11 @@ def test_fpgrowth_vs_efficient_apriori_basic():
 
     # Run priors
     itemsets_list, supports_list = priors.fp_growth(transactions, min_support)
-    priors_result = fp_growth_to_dataframe(
-        itemsets_list, supports_list, num_transactions
-    )
+    priors_result = fp_growth_to_dataframe(itemsets_list, supports_list, num_transactions)
 
     # Run efficient_apriori
     transactions_list = [tuple(np.where(row)[0]) for row in transactions]
-    ea_itemsets, ea_rules = efficient_apriori.apriori(
-        transactions_list, min_support=min_support
-    )
+    ea_itemsets, ea_rules = efficient_apriori.apriori(transactions_list, min_support=min_support)
 
     # Convert efficient_apriori results to dictionary: {itemset: support}
     # ea_itemsets format: {1: {(item,): count}, 2: {(item1, item2): count}, ...}
@@ -131,8 +121,7 @@ def test_fpgrowth_vs_efficient_apriori_basic():
 
     # Convert priors results to dictionary: {itemset: support}
     priors_dict = {
-        frozenset(row["itemsets"]): row["support"]
-        for _, row in priors_result.iterrows()
+        frozenset(row["itemsets"]): row["support"] for _, row in priors_result.iterrows()
     }
 
     if ea_itemsets:
@@ -144,12 +133,10 @@ def test_fpgrowth_vs_efficient_apriori_basic():
 
     # Compare counts
     priors_count = len(priors_result)
-    ea_count = (
-        sum(len(itemsets) for itemsets in ea_itemsets.values()) if ea_itemsets else 0
+    ea_count = sum(len(itemsets) for itemsets in ea_itemsets.values()) if ea_itemsets else 0
+    assert priors_count == ea_count, (
+        f"Itemset count mismatch: priors={priors_count}, efficient_apriori={ea_count}"
     )
-    assert (
-        priors_count == ea_count
-    ), f"Itemset count mismatch: priors={priors_count}, efficient_apriori={ea_count}"
 
     # Compare dictionaries: itemsets and their support values
     assert priors_dict == ea_dict, (
@@ -162,7 +149,6 @@ def test_fpgrowth_vs_efficient_apriori_basic():
 @pytest.mark.slow
 def test_fpgrowth_vs_mlxtend_medium():
     """Compare with mlxtend on medium-sized dataset."""
-    import pandas.testing as tm
 
     pytest.importorskip("mlxtend")
     # Import the conversion utility
@@ -180,9 +166,7 @@ def test_fpgrowth_vs_mlxtend_medium():
 
     # Run priors
     itemsets_list, supports_list = priors.fp_growth(transactions, min_support)
-    priors_result = fp_growth_to_dataframe(
-        itemsets_list, supports_list, len(transactions)
-    )
+    priors_result = fp_growth_to_dataframe(itemsets_list, supports_list, len(transactions))
 
     # Run mlxtend
     df = pd.DataFrame(
@@ -194,23 +178,21 @@ def test_fpgrowth_vs_mlxtend_medium():
     # Compare results
     priors_count = len(priors_result)
     mlxtend_count = len(mlxtend_result)
-    assert (
-        priors_count == mlxtend_count
-    ), f"Itemset count mismatch: priors={priors_count}, mlxtend={mlxtend_count}"
+    assert priors_count == mlxtend_count, (
+        f"Itemset count mismatch: priors={priors_count}, mlxtend={mlxtend_count}"
+    )
 
     # Compare itemsets and supports (order-independent)
     priors_set = {
-        (frozenset(row["itemsets"]), row["support"])
-        for _, row in priors_result.iterrows()
+        (frozenset(row["itemsets"]), row["support"]) for _, row in priors_result.iterrows()
     }
     mlxtend_set = {
-        (frozenset(row["itemsets"]), row["support"])
-        for _, row in mlxtend_result.iterrows()
+        (frozenset(row["itemsets"]), row["support"]) for _, row in mlxtend_result.iterrows()
     }
 
-    assert (
-        priors_set == mlxtend_set
-    ), f"Itemsets mismatch:\nPriors only: {priors_set - mlxtend_set}\nMlxtend only: {mlxtend_set - priors_set}"
+    assert priors_set == mlxtend_set, (
+        f"Itemsets mismatch:\nPriors only: {priors_set - mlxtend_set}\nMlxtend only: {mlxtend_set - priors_set}"
+    )
 
 
 # ============================================================================
@@ -246,11 +228,11 @@ def test_fpgrowth_consistent_across_scales():
 
         if baseline_count is None:
             baseline_count = itemset_count
-            assert itemset_count > 0, f"Should find itemsets with this pattern"
+            assert itemset_count > 0, "Should find itemsets with this pattern"
         else:
-            assert (
-                itemset_count == baseline_count
-            ), f"Scale {scale}: found {itemset_count} itemsets, expected {baseline_count}"
+            assert itemset_count == baseline_count, (
+                f"Scale {scale}: found {itemset_count} itemsets, expected {baseline_count}"
+            )
 
 
 def test_fpgrowth_different_supports():
@@ -265,9 +247,9 @@ def test_fpgrowth_different_supports():
         itemset_count = count_itemsets((itemsets_list, supports_list))
 
         # Lower support should find more or equal itemsets (monotonic property)
-        assert (
-            itemset_count >= prev_count
-        ), f"Support {support}: {itemset_count} < {prev_count} from higher support"
+        assert itemset_count >= prev_count, (
+            f"Support {support}: {itemset_count} < {prev_count} from higher support"
+        )
 
         prev_count = itemset_count
 
@@ -280,9 +262,7 @@ def test_fpgrowth_empty_transactions():
     itemsets_list, supports_list = priors.fp_growth(transactions, min_support)
     itemset_count = count_itemsets((itemsets_list, supports_list))
 
-    assert (
-        itemset_count == 0
-    ), f"Empty transactions should return 0 itemsets, got {itemset_count}"
+    assert itemset_count == 0, f"Empty transactions should return 0 itemsets, got {itemset_count}"
 
 
 # ============================================================================
@@ -339,9 +319,9 @@ def test_known_result_with_scaling():
     count_scaled = count_itemsets((itemsets_list_scaled, supports_list_scaled))
 
     # Should find same patterns - all items still at 100%
-    assert (
-        count_base == count_scaled
-    ), f"Scaling changed result: base={count_base}, scaled={count_scaled}"
+    assert count_base == count_scaled, (
+        f"Scaling changed result: base={count_base}, scaled={count_scaled}"
+    )
 
 
 def test_support_threshold_filtering():
@@ -372,9 +352,9 @@ def test_support_threshold_filtering():
     count_50 = count_itemsets((itemsets_list_50, supports_list_50))
 
     # Lower support should find more itemsets
-    assert (
-        count_50 > count_60
-    ), f"50% support should find more itemsets than 60%: {count_50} vs {count_60}"
+    assert count_50 > count_60, (
+        f"50% support should find more itemsets than 60%: {count_50} vs {count_60}"
+    )
 
 
 def test_scalable_known_results():
@@ -417,22 +397,22 @@ def test_scalable_known_results():
         # Expected: {C} = 1 itemset
         itemsets_list_100, supports_list_100 = priors.fp_growth(transactions, 1.0)
         count_100 = count_itemsets((itemsets_list_100, supports_list_100))
-        assert (
-            count_100 == 1
-        ), f"Scale {num_trans}: 100% support should find exactly 1 itemset, got {count_100}"
+        assert count_100 == 1, (
+            f"Scale {num_trans}: 100% support should find exactly 1 itemset, got {count_100}"
+        )
 
         # At 70% support: items B (70%) and C (100%)
         # Expected: {B}, {C}, {B,C} = 3 itemsets
         itemsets_list_70, supports_list_70 = priors.fp_growth(transactions, 0.7)
         count_70 = count_itemsets((itemsets_list_70, supports_list_70))
-        assert (
-            count_70 == 3
-        ), f"Scale {num_trans}: 70% support should find exactly 3 itemsets, got {count_70}"
+        assert count_70 == 3, (
+            f"Scale {num_trans}: 70% support should find exactly 3 itemsets, got {count_70}"
+        )
 
         # At 50% support: items A (50%), B (70%), C (100%)
         # Expected: {A}, {B}, {C}, {A,B}, {A,C}, {B,C}, {A,B,C} = 7 itemsets (2^3-1)
         itemsets_list_50, supports_list_50 = priors.fp_growth(transactions, 0.5)
         count_50 = count_itemsets((itemsets_list_50, supports_list_50))
-        assert (
-            count_50 == 7
-        ), f"Scale {num_trans}: 50% support should find exactly 7 itemsets, got {count_50}"
+        assert count_50 == 7, (
+            f"Scale {num_trans}: 50% support should find exactly 7 itemsets, got {count_50}"
+        )

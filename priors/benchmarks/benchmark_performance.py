@@ -7,7 +7,6 @@ Run with pytest-benchmark or as standalone script.
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -51,9 +50,7 @@ class TestPerformanceBenchmarks:
             )
 
             start_time = time.time()
-            mlxtend_result = mlxtend_fpgrowth(
-                df, min_support=min_support, use_colnames=False
-            )
+            mlxtend_result = mlxtend_fpgrowth(df, min_support=min_support, use_colnames=False)
             mlxtend_time = time.time() - start_time
             mlxtend_count = len(mlxtend_result)
 
@@ -119,7 +116,7 @@ class TestPerformanceBenchmarks:
             scale_factor = sizes[i] / sizes[i - 1]
             time_factor = times[i] / times[i - 1] if times[i - 1] > 0 else 1
             print(
-                f"Scale {sizes[i-1]} -> {sizes[i]}: {scale_factor}x size took {time_factor:.2f}x time"
+                f"Scale {sizes[i - 1]} -> {sizes[i]}: {scale_factor}x size took {time_factor:.2f}x time"
             )
 
     @pytest.mark.slow
@@ -132,9 +129,7 @@ class TestPerformanceBenchmarks:
         item_counts = [20, 50, 100]
 
         for items in item_counts:
-            transactions = generate_transactions(
-                base_transactions, items, avg_size, seed=42
-            )
+            transactions = generate_transactions(base_transactions, items, avg_size, seed=42)
 
             start_time = time.time()
             result = priors.fp_growth(transactions, min_support)
@@ -186,10 +181,8 @@ class TestSpeedBenchmarks:
     def test_speed_comparison(self, num_trans, num_items, avg_size, min_support):
         """Compare execution times across libraries."""
         transactions = generate_transactions(num_trans, num_items, avg_size, seed=42)
-        df = pd.DataFrame(
-            transactions.astype(bool), columns=[f"i{i}" for i in range(num_items)]
-        )
-        dataset_size = f"{num_trans//1000}K × {num_items}"
+        df = pd.DataFrame(transactions.astype(bool), columns=[f"i{i}" for i in range(num_items)])
+        dataset_size = f"{num_trans // 1000}K × {num_items}"
 
         # Priors FP-Growth
         start = time.time()
@@ -201,13 +194,10 @@ class TestSpeedBenchmarks:
         try:
             if num_trans <= 50000:  # Avoid OOM on larger datasets
                 pytest.importorskip("mlxtend")
-                from mlxtend.frequent_patterns import \
-                    fpgrowth as mlxtend_fpgrowth
+                from mlxtend.frequent_patterns import fpgrowth as mlxtend_fpgrowth
 
                 start = time.time()
-                _ = mlxtend_fpgrowth(
-                    df, min_support=min_support, use_colnames=False
-                )
+                _ = mlxtend_fpgrowth(df, min_support=min_support, use_colnames=False)
                 mlxtend_time = f"{time.time() - start:.2f}s"
         except (ImportError, MemoryError, Exception):
             mlxtend_time = "OOM"
@@ -219,9 +209,7 @@ class TestSpeedBenchmarks:
 
             transactions_list = [tuple(np.where(row)[0]) for row in transactions]
             start = time.time()
-            itemsets, rules = efficient_apriori.apriori(
-                transactions_list, min_support=min_support
-            )
+            itemsets, rules = efficient_apriori.apriori(transactions_list, min_support=min_support)
             ea_time = f"{time.time() - start:.2f}s"
         except (ImportError, Exception):
             ea_time = "N/A"
