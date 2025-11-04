@@ -1,6 +1,9 @@
 name: Test Release to TestPyPI
 
 on:
+  push:
+    branches:
+      - ci/ci-pipeline
   workflow_dispatch:
 
 permissions:
@@ -17,7 +20,7 @@ jobs:
         with:
           target: x86_64
           args: --release --out dist --find-interpreter
-          sccache: 'true'
+          sccache: "true"
           manylinux: auto
           working-directory: priors
 
