@@ -68,7 +68,6 @@ jobs:
           npm install @semantic-release/git
           npm install @semantic-release/changelog
           npm install @semantic-release/exec
-          npm install @semantic-release/github
 
       - name: Run semantic-release
         id: semantic
