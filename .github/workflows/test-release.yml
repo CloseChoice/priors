@@ -1,6 +1,9 @@
 name: Test Release to TestPyPI
 
 on:
+  push:
+    branches:
+      - '**'
   workflow_dispatch:
 
 permissions:
