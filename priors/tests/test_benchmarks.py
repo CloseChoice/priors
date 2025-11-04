@@ -5,7 +5,6 @@ Tests speed, memory efficiency, and scalability up to 500K transactions.
 
 import gc
 import time
-from typing import Dict, List, Tuple
 
 import numpy as np
 import pytest
@@ -45,7 +44,7 @@ def get_memory_usage():
 def format_memory(mb):
     """Format memory in MB to human readable format."""
     if mb >= 1024:
-        return f"{mb/1024:.1f} GB"
+        return f"{mb / 1024:.1f} GB"
     else:
         return f"{mb:.0f} MB"
 
@@ -53,7 +52,7 @@ def format_memory(mb):
 def format_time(seconds):
     """Format time in seconds to human readable format."""
     if seconds >= 60:
-        return f"{seconds/60:.1f}m"
+        return f"{seconds / 60:.1f}m"
     else:
         return f"{seconds:.2f}s"
 
@@ -159,13 +158,13 @@ def test_speed_scaling(num_trans, num_items, avg_size, min_support):
     memory_efficiency = dataset_memory / memory_used if memory_used > 0 else 1.0
 
     # Dataset size label
-    dataset_size = f"{num_trans//1000}K × {num_items}"
+    dataset_size = f"{num_trans // 1000}K × {num_items}"
 
     # Performance expectations
     max_time = min(60.0, num_trans / 5000)  # Scale expectations
-    assert (
-        execution_time < max_time
-    ), f"Dataset {dataset_size} took {execution_time:.2f}s, expected < {max_time:.2f}s"
+    assert execution_time < max_time, (
+        f"Dataset {dataset_size} took {execution_time:.2f}s, expected < {max_time:.2f}s"
+    )
 
     assert itemsets_found >= 0, "Should find some itemsets or return 0"
 
@@ -192,9 +191,7 @@ def test_speed_scaling(num_trans, num_items, avg_size, min_support):
     print(f"Results: {itemsets_found:,} itemsets in {format_time(execution_time)}")
     print(f"Throughput: {throughput:,.0f} transactions/second")
     if psutil:
-        print(
-            f"Memory: {format_memory(memory_used)} used, {memory_efficiency:.1f}x efficiency"
-        )
+        print(f"Memory: {format_memory(memory_used)} used, {memory_efficiency:.1f}x efficiency")
 
 
 # ============================================================================
@@ -213,18 +210,14 @@ def test_speed_scaling(num_trans, num_items, avg_size, min_support):
 )
 def test_memory_efficiency(num_trans, num_items, density):
     """Test memory efficiency across different data densities."""
-    print(
-        f"\n=== Memory Test: {num_trans:,} × {num_items} (density: {density:.0%}) ==="
-    )
+    print(f"\n=== Memory Test: {num_trans:,} × {num_items} (density: {density:.0%}) ===")
 
     # Generate data with specific density
     np.random.seed(42)
     transactions = np.zeros((num_trans, num_items), dtype=np.int32)
 
     for i in range(num_trans):
-        num_items_in_trans = max(
-            1, int(num_items * density * np.random.uniform(0.5, 1.5))
-        )
+        num_items_in_trans = max(1, int(num_items * density * np.random.uniform(0.5, 1.5)))
         num_items_in_trans = min(num_items_in_trans, num_items)
         items = np.random.choice(num_items, num_items_in_trans, replace=False)
         transactions[i, items] = 1
@@ -255,12 +248,8 @@ def test_memory_efficiency(num_trans, num_items, density):
         itemsets_found = count_itemsets(result)
         memory_efficiency = dataset_memory / memory_used if memory_used > 0 else 1.0
 
-        print(
-            f"  Support {support}: {itemsets_found:,} itemsets in {format_time(execution_time)}"
-        )
-        print(
-            f"  Memory used: {format_memory(memory_used)} (efficiency: {memory_efficiency:.1f}x)"
-        )
+        print(f"  Support {support}: {itemsets_found:,} itemsets in {format_time(execution_time)}")
+        print(f"  Memory used: {format_memory(memory_used)} (efficiency: {memory_efficiency:.1f}x)")
 
         # Reasonable memory usage expectations
         expected_max_memory = dataset_memory * 5  # At most 5x the dataset size
@@ -277,7 +266,7 @@ def test_memory_efficiency(num_trans, num_items, density):
 
 def test_transaction_scaling():
     """Test how performance scales with number of transactions."""
-    print(f"\n=== Transaction Scaling Analysis ===")
+    print("\n=== Transaction Scaling Analysis ===")
 
     base_items = 100
     avg_size = 20
@@ -291,7 +280,6 @@ def test_transaction_scaling():
         print(f"\nTesting {size:,} transactions...")
 
         transactions = generate_transactions(size, base_items, avg_size, seed=42)
-        dataset_memory = transactions.nbytes / 1024 / 1024
 
         gc.collect()
         start_memory = get_memory_usage()
@@ -308,13 +296,11 @@ def test_transaction_scaling():
         times.append(execution_time)
         memories.append(memory_used)
 
-        print(
-            f"  Results: {itemsets_found:,} itemsets in {format_time(execution_time)}"
-        )
+        print(f"  Results: {itemsets_found:,} itemsets in {format_time(execution_time)}")
         print(f"  Memory: {format_memory(memory_used)} used")
 
     # Analyze scaling
-    print(f"\n=== Scaling Analysis ===")
+    print("\n=== Scaling Analysis ===")
     for i in range(1, len(sizes)):
         scale_factor = sizes[i] / sizes[i - 1]
         time_factor = times[i] / times[i - 1] if times[i - 1] > 0 else 1.0
@@ -331,14 +317,14 @@ def test_transaction_scaling():
             efficiency = "Poor"
 
         print(
-            f"  {sizes[i-1]:,} → {sizes[i]:,}: "
+            f"  {sizes[i - 1]:,} → {sizes[i]:,}: "
             f"{scale_factor:.1f}x size → {time_factor:.1f}x time, {memory_factor:.1f}x memory ({efficiency})"
         )
 
 
 def test_item_scaling():
     """Test how performance scales with number of items."""
-    print(f"\n=== Item Scaling Analysis ===")
+    print("\n=== Item Scaling Analysis ===")
 
     base_transactions = 100_000
     avg_size = 15
@@ -349,9 +335,7 @@ def test_item_scaling():
     for items in item_counts:
         print(f"\nTesting {items} items...")
 
-        transactions = generate_transactions(
-            base_transactions, items, avg_size, seed=42
-        )
+        transactions = generate_transactions(base_transactions, items, avg_size, seed=42)
 
         start_time = time.time()
         result = priors.fp_growth(transactions, min_support)
@@ -359,14 +343,10 @@ def test_item_scaling():
 
         itemsets_found = count_itemsets(result)
 
-        print(
-            f"  Results: {itemsets_found:,} itemsets in {format_time(execution_time)}"
-        )
+        print(f"  Results: {itemsets_found:,} itemsets in {format_time(execution_time)}")
 
         # Should handle increasing item counts reasonably
-        assert (
-            execution_time < 30.0
-        ), f"Item count {items} took too long: {execution_time:.2f}s"
+        assert execution_time < 30.0, f"Item count {items} took too long: {execution_time:.2f}s"
 
 
 # ============================================================================
@@ -377,7 +357,7 @@ def test_item_scaling():
 @pytest.mark.slow
 def test_maximum_dataset():
     """Test with maximum dataset size (500K transactions)."""
-    print(f"\n=== Maximum Dataset Test (500K transactions) ===")
+    print("\n=== Maximum Dataset Test (500K transactions) ===")
 
     num_trans = 500_000
     num_items = 200
@@ -390,9 +370,7 @@ def test_maximum_dataset():
     gen_time = time.time() - gen_start
 
     dataset_memory = transactions.nbytes / 1024 / 1024
-    print(
-        f"Dataset: {format_memory(dataset_memory)}, Generation: {format_time(gen_time)}"
-    )
+    print(f"Dataset: {format_memory(dataset_memory)}, Generation: {format_time(gen_time)}")
 
     # Memory monitoring
     gc.collect()
@@ -409,32 +387,30 @@ def test_maximum_dataset():
     itemsets_found = count_itemsets(result)
     throughput = num_trans / execution_time if execution_time > 0 else 0
 
-    print(f"\n=== Results ===")
+    print("\n=== Results ===")
     print(f"Itemsets found: {itemsets_found:,}")
     print(f"Execution time: {format_time(execution_time)}")
     print(f"Throughput: {throughput:,.0f} transactions/second")
     if psutil:
         print(f"Memory used: {format_memory(memory_used)}")
-        print(f"Memory efficiency: {dataset_memory/memory_used:.1f}x")
+        print(f"Memory efficiency: {dataset_memory / memory_used:.1f}x")
 
     # Should complete in reasonable time (5 minutes max)
-    assert (
-        execution_time < 300.0
-    ), f"Maximum dataset took too long: {execution_time:.2f}s"
+    assert execution_time < 300.0, f"Maximum dataset took too long: {execution_time:.2f}s"
     assert itemsets_found >= 0, "Should find itemsets or return 0"
 
 
 @pytest.mark.slow
 def test_very_low_support():
     """Test with very low support thresholds."""
-    print(f"\n=== Very Low Support Test ===")
+    print("\n=== Very Low Support Test ===")
 
     transactions = generate_transactions(100_000, 100, 20, seed=42)
 
     support_levels = [0.001, 0.0005, 0.0001]  # Very low supports
 
     for support in support_levels:
-        print(f"\nTesting support {support} ({support*100:.02f}%)...")
+        print(f"\nTesting support {support} ({support * 100:.02f}%)...")
 
         start_time = time.time()
         result = priors.fp_growth(transactions, support)
@@ -445,9 +421,7 @@ def test_very_low_support():
         print(f"  Found {itemsets_found:,} itemsets in {format_time(execution_time)}")
 
         # Should handle very low support without crashing
-        assert (
-            execution_time < 60.0
-        ), f"Support {support} took too long: {execution_time:.2f}s"
+        assert execution_time < 60.0, f"Support {support} took too long: {execution_time:.2f}s"
 
 
 # ============================================================================

@@ -11,10 +11,15 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Re-export all utilities from utils module
-from utils import (count_itemsets, extract_itemsets_from_efficient_apriori,
-                   extract_itemsets_from_mlxtend, extract_itemsets_from_priors,
-                   extract_itemsets_from_result,
-                   generate_all_ones_transactions, generate_transactions)
+from utils import (
+    count_itemsets,
+    extract_itemsets_from_efficient_apriori,
+    extract_itemsets_from_mlxtend,
+    extract_itemsets_from_priors,
+    extract_itemsets_from_result,
+    generate_all_ones_transactions,
+    generate_transactions,
+)
 
 __all__ = [
     "count_itemsets",

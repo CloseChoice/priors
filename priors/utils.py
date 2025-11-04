@@ -111,7 +111,7 @@ def extract_itemsets_from_efficient_apriori(ea_itemsets):
     """
     itemsets = set()
     if ea_itemsets:
-        for size_k, itemsets_k in ea_itemsets.items():
+        for _size_k, itemsets_k in ea_itemsets.items():
             for itemset in itemsets_k:
                 itemsets.add(tuple(sorted(itemset)))
     return itemsets
@@ -178,7 +178,7 @@ def fp_growth_to_dataframe(itemsets_list, supports_list, num_transactions):
     all_itemsets = []
     all_supports = []
 
-    for itemsets_array, supports in zip(itemsets_list, supports_list):
+    for itemsets_array, supports in zip(itemsets_list, supports_list, strict=False):
         for i in range(itemsets_array.shape[0]):
             itemset = frozenset(itemsets_array[i])
             support = supports[i] / num_transactions

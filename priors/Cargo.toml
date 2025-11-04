@@ -3,6 +3,10 @@ name = "priors"
 version = "0.1.0"
 authors = ["Tobias Pitters <tobias@cloudexplain.eu"]
 edition = "2024"
+description = "Fast frequent pattern mining library"
+readme = "README.md"
+repository = "https://github.com/CloseChoice/priors"
+
 
 [lib]
 name = "priors"

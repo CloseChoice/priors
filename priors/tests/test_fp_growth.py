@@ -3,14 +3,10 @@ Basic tests for FP-Growth implementation.
 Tests core functionality and correctness.
 """
 
-from typing import List, Optional, Tuple
-
 import numpy as np
-import pandas as pd
-import pytest
+
 # Import shared utilities
-from conftest import (count_itemsets, extract_itemsets_from_result,
-                      generate_transactions)
+from conftest import count_itemsets, generate_transactions
 
 import priors
 
@@ -29,9 +25,7 @@ def test_empty_transactions():
     result = priors.fp_growth(transactions, min_support)
     itemset_count = count_itemsets(result)
 
-    assert (
-        itemset_count == 0
-    ), f"Empty transactions should return 0 itemsets, got {itemset_count}"
+    assert itemset_count == 0, f"Empty transactions should return 0 itemsets, got {itemset_count}"
 
 
 def test_single_transaction():
@@ -45,9 +39,9 @@ def test_single_transaction():
     # With single transaction at 100% support, we should get all subsets of [0,2,4]
     # That's 2^3 - 1 = 7 itemsets (excluding empty set)
     expected = 7
-    assert (
-        itemset_count == expected
-    ), f"Single transaction should return {expected} itemsets, got {itemset_count}"
+    assert itemset_count == expected, (
+        f"Single transaction should return {expected} itemsets, got {itemset_count}"
+    )
 
 
 def test_no_frequent_items():
@@ -67,9 +61,9 @@ def test_no_frequent_items():
     result = priors.fp_growth(transactions, min_support)
     itemset_count = count_itemsets(result)
 
-    assert (
-        itemset_count == 0
-    ), f"High support threshold should return 0 itemsets, got {itemset_count}"
+    assert itemset_count == 0, (
+        f"High support threshold should return 0 itemsets, got {itemset_count}"
+    )
 
 
 def test_all_items_frequent():
@@ -89,9 +83,9 @@ def test_all_items_frequent():
 
     # All subsets of {0,1,2}: 2^3 - 1 = 7
     expected = 7
-    assert (
-        itemset_count == expected
-    ), f"All frequent items should return {expected} itemsets, got {itemset_count}"
+    assert itemset_count == expected, (
+        f"All frequent items should return {expected} itemsets, got {itemset_count}"
+    )
 
 
 def test_basic_example():
@@ -132,9 +126,9 @@ def test_different_support_levels():
         count = count_itemsets(result)
 
         # Lower support should find more or equal itemsets
-        assert (
-            count >= prev_count
-        ), f"Support {support} found {count} itemsets, less than {prev_count} at higher support"
+        assert count >= prev_count, (
+            f"Support {support} found {count} itemsets, less than {prev_count} at higher support"
+        )
         prev_count = count
 
 
@@ -230,9 +224,7 @@ def test_min_support_one():
 
     # Only items that appear in ALL transactions should be found
     # In this case, no item appears in all 3 transactions
-    assert (
-        itemset_count == 0
-    ), f"100% support should find 0 itemsets, got {itemset_count}"
+    assert itemset_count == 0, f"100% support should find 0 itemsets, got {itemset_count}"
 
 
 def test_single_item_transactions():
@@ -255,9 +247,7 @@ def test_single_item_transactions():
     # Only single items should be frequent (no combinations)
     # Item 0 appears twice (40%), others once (20%)
     # So items 0,1,2,3 should all be frequent
-    assert (
-        itemset_count >= 4
-    ), f"Should find at least 4 single items, got {itemset_count}"
+    assert itemset_count >= 4, f"Should find at least 4 single items, got {itemset_count}"
 
 
 def test_duplicate_transactions():
@@ -272,9 +262,9 @@ def test_duplicate_transactions():
     # All items in the transaction should be frequent
     # Items 0,1,3 appear in all 5 transactions (100%)
     expected_combinations = 2**3 - 1  # All subsets of {0,1,3}
-    assert (
-        itemset_count == expected_combinations
-    ), f"Expected {expected_combinations} itemsets, got {itemset_count}"
+    assert itemset_count == expected_combinations, (
+        f"Expected {expected_combinations} itemsets, got {itemset_count}"
+    )
 
 
 def test_binary_validation():

@@ -5,7 +5,6 @@ Run with pytest-benchmark or as standalone script.
 
 import gc
 import time
-from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -172,13 +171,13 @@ class TestMemoryBenchmarks:
             pytest.skip("Lazy FP-Growth functions not available")
 
         transactions = generate_transactions(num_trans, num_items, avg_size, seed=42)
-        dataset_size = f"{num_trans//1000}K × {num_items}"
+        dataset_size = f"{num_trans // 1000}K × {num_items}"
 
         # Regular FP-Growth
         gc.collect()
         start_mem = get_memory_usage()
         start_time = time.time()
-        regular_result = priors.fp_growth(transactions, min_support)
+        _ = priors.fp_growth(transactions, min_support)
         regular_time = time.time() - start_time
         regular_mem = max(1, get_memory_usage() - start_mem)  # Ensure positive
 
@@ -188,7 +187,7 @@ class TestMemoryBenchmarks:
         # Lazy FP-Growth
         start_mem = get_memory_usage()
         start_time = time.time()
-        lazy_result = run_streaming_fp_growth(transactions, min_support)
+        _ = run_streaming_fp_growth(transactions, min_support)
         lazy_time = time.time() - start_time
         lazy_mem = max(1, get_memory_usage() - start_mem)  # Ensure positive
 
@@ -203,9 +202,7 @@ class TestMemoryBenchmarks:
             lazy_mem = regular_mem * 0.4  # Estimate 40% of regular
             memory_savings = regular_mem / lazy_mem
 
-        add_memory_benchmark(
-            dataset_size, regular_mem, lazy_mem, memory_savings, time_overhead
-        )
+        add_memory_benchmark(dataset_size, regular_mem, lazy_mem, memory_savings, time_overhead)
         print(
             f"{dataset_size}: Regular={regular_mem:.0f}MB, Lazy={lazy_mem:.0f}MB, Savings={memory_savings:.1f}x, Overhead={time_overhead:.1f}x"
         )

@@ -4,7 +4,6 @@ Prints all results to console for manual verification.
 """
 
 import time
-from typing import List
 
 import numpy as np
 import pandas as pd
@@ -21,7 +20,7 @@ def print_separator(title: str = ""):
         print("=" * 80)
 
 
-def print_itemsets(result: List[NDArray], name: str):
+def print_itemsets(result: list[NDArray], name: str):
     """Print itemsets in a readable format."""
     print(f"\n{name}:")
     print("-" * 40)
@@ -36,7 +35,7 @@ def print_itemsets(result: List[NDArray], name: str):
             continue
         print(f"  Level {level_idx} ({level.shape[1]}-itemsets): {len(level)} itemsets")
         for i, itemset in enumerate(level):
-            print(f"    {i+1}. {set(itemset)}")
+            print(f"    {i + 1}. {set(itemset)}")
         total_count += len(level)
 
     print(f"\n  Total: {total_count} itemsets")
@@ -160,26 +159,22 @@ def test_all_functions_with_output():
                 transactions.astype(bool),
                 columns=[f"item_{i}" for i in range(transactions.shape[1])],
             )
-            mlxtend_result = mlxtend_fpgrowth(
-                df, min_support=min_support, use_colnames=False
-            )
+            mlxtend_result = mlxtend_fpgrowth(df, min_support=min_support, use_colnames=False)
             time_mlxtend = time.time() - start
 
             print(f"Execution time: {time_mlxtend:.4f}s")
-            print(f"\nResults:")
+            print("\nResults:")
             print("-" * 40)
             print(f"  Total itemsets: {len(mlxtend_result)}")
 
             # Group by itemset size
             if len(mlxtend_result) > 0:
-                mlxtend_result["size"] = mlxtend_result["itemsets"].apply(
-                    lambda x: len(x)
-                )
+                mlxtend_result["size"] = mlxtend_result["itemsets"].apply(lambda x: len(x))
                 for size in sorted(mlxtend_result["size"].unique()):
                     size_df = mlxtend_result[mlxtend_result["size"] == size]
                     print(f"  Level {size} ({size}-itemsets): {len(size_df)} itemsets")
-                    for idx, row in size_df.iterrows():
-                        itemset = sorted(list(row["itemsets"]))
+                    for _idx, row in size_df.iterrows():
+                        itemset = sorted(row["itemsets"])
                         support = row["support"]
                         print(f"    {set(itemset)} (support: {support:.4f})")
 

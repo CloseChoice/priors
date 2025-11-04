@@ -47,7 +47,7 @@ def generate_data(num_tx, num_items, avg_size, density):
             items = np.random.choice(num_items, min(size, num_items), replace=False)
             data[i, items] = 1
 
-    print(f" ✓ {data.nbytes/1024/1024:.1f}MB")
+    print(f" ✓ {data.nbytes / 1024 / 1024:.1f}MB")
     return data
 
 
@@ -62,16 +62,18 @@ def benchmark(name, func, data, min_sup):
         mem_end = get_memory_mb()
 
         if isinstance(result, list):
-            patterns = sum(len(l) for l in result)
+            patterns = sum(len(itemset_list) for itemset_list in result)
         elif isinstance(result, pd.DataFrame):
             patterns = len(result)
         else:
             patterns = sum(len(result[0][k]) for k in result[0])
 
-        print(f" {elapsed:6.2f}s | {patterns:8,} patterns | {mem_end-mem_start:6.1f}MB")
+        print(
+            f" {elapsed:6.2f}s | {patterns:8,} patterns | {mem_end - mem_start:6.1f}MB"
+        )
         return elapsed, patterns, mem_end - mem_start
     except MemoryError:
-        print(f" ❌ OOM")
+        print(" ❌ OOM")
         return None, None, None
     except Exception as e:
         print(f" ❌ {str(e)[:50]}")
@@ -150,7 +152,7 @@ print("\n" + "=" * 80)
 print("⚡ FP-Growth Benchmark")
 print("=" * 80)
 print(
-    f"System RAM: {psutil.virtual_memory().total/1024**3:.1f}GB | Available: {psutil.virtual_memory().available/1024**3:.1f}GB"
+    f"System RAM: {psutil.virtual_memory().total / 1024**3:.1f}GB | Available: {psutil.virtual_memory().available / 1024**3:.1f}GB"
 )
 print("=" * 80)
 
@@ -179,14 +181,14 @@ for cfg in configs:
 
     if t1 and t2:
         print(
-            f"\n  💡 Lazy vs Regular: {((t2/t1-1)*100):+.1f}% time | {((1-m2/m1)*100):+.1f}% memory savings"
+            f"\n  💡 Lazy vs Regular: {((t2 / t1 - 1) * 100):+.1f}% time | {((1 - m2 / m1) * 100):+.1f}% memory savings"
         )
 
     if t1 and t3:
-        print(f"  💡 priors vs mlxtend: {(t3/t1):.1f}x faster")
+        print(f"  💡 priors vs mlxtend: {(t3 / t1):.1f}x faster")
 
     if t1 and t4:
-        print(f"  💡 priors vs efficient-apriori: {(t4/t1):.1f}x faster")
+        print(f"  💡 priors vs efficient-apriori: {(t4 / t1):.1f}x faster")
 
     results.append(
         {
@@ -212,13 +214,13 @@ for r in results:
         print(f"  priors (lazy):    {r['lazy_time']:.3f}s")
     if r["mlxtend_time"]:
         print(
-            f"  mlxtend:          {r['mlxtend_time']:.3f}s ({r['mlxtend_time']/r['priors_time']:.1f}x slower)"
+            f"  mlxtend:          {r['mlxtend_time']:.3f}s ({r['mlxtend_time'] / r['priors_time']:.1f}x slower)"
             if r["priors_time"]
             else f"  mlxtend:          {r['mlxtend_time']:.3f}s"
         )
     if r["efficient_time"]:
         print(
-            f"  efficient-apriori: {r['efficient_time']:.3f}s ({r['efficient_time']/r['priors_time']:.1f}x slower)"
+            f"  efficient-apriori: {r['efficient_time']:.3f}s ({r['efficient_time'] / r['priors_time']:.1f}x slower)"
             if r["priors_time"]
             else f"  efficient-apriori: {r['efficient_time']:.3f}s"
         )

@@ -1,0 +1,166 @@
+name: Production Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  commitlint:
+    name: Validate Commits
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      - name: Install commitlint
+        run: |
+          npm install -g @commitlint/cli @commitlint/config-conventional
+
+      - name: Validate commits
+        run: npx commitlint --from HEAD~10 --to HEAD --verbose
+
+  tests:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Create virtual environment
+        run: python -m venv .venv
+
+      - name: Install dependencies
+        run: |
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install pytest maturin pandas numpy
+
+      - name: Build Rust extension
+        run: |
+          source .venv/bin/activate
+          cd priors
+          maturin develop
+
+      - name: Run tests
+        run: |
+          source .venv/bin/activate
+          cd priors
+          pytest tests/test_comparison.py tests/test_fp_growth.py tests/test_streaming.py -v -m "not slow"
+
+  linting:
+    name: Run Linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Run ruff check
+        run: ruff check .
+
+      - name: Run ruff format check
+        run: ruff format --check .
+
+  semantic-release:
+    name: Semantic Release
+    needs: [commitlint, tests, linting]
+    runs-on: ubuntu-latest
+    outputs:
+      new-release-published: ${{ steps.semantic.outputs.new-release-published }}
+      new-release-version: ${{ steps.semantic.outputs.new-release-version }}
+      new-release-git-tag: ${{ steps.semantic.outputs.new-release-git-tag }}
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+
+      - name: Install semantic-release
+        run: |
+          npm install semantic-release@latest
+          npm install @semantic-release/commit-analyzer
+          npm install @semantic-release/release-notes-generator
+          npm install @semantic-release/git
+          npm install @semantic-release/changelog
+          npm install @semantic-release/github
+
+      - name: Run semantic-release
+        id: semantic
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Run semantic-release and capture output
+          OUTPUT=$(npx semantic-release 2>&1 || true)
+          echo "$OUTPUT"
+
+          # Check if a new release was published
+          if echo "$OUTPUT" | grep -q "Published release"; then
+            # Extract version from output
+            VERSION=$(echo "$OUTPUT" | grep -oP 'Published release \K[0-9]+\.[0-9]+\.[0-9]+' || echo "")
+            if [ -n "$VERSION" ]; then
+              echo "✅ New release published: v$VERSION"
+              echo "new-release-version=v$VERSION" >> $GITHUB_OUTPUT
+              echo "new-release-git-tag=v$VERSION" >> $GITHUB_OUTPUT
+              echo "new-release-published=true" >> $GITHUB_OUTPUT
+            else
+              echo "new-release-published=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "ℹ️ No new release"
+            echo "new-release-published=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Debug outputs
+        run: |
+          echo "new-release-published: ${{ steps.semantic.outputs.new-release-published }}"
+          echo "new-release-version: ${{ steps.semantic.outputs.new-release-version }}"
+          echo "new-release-git-tag: ${{ steps.semantic.outputs.new-release-git-tag }}"
+
+  build-python:
+    name: Build & Publish Python to PyPI
+    needs: semantic-release
+    if: always() && needs.semantic-release.outputs.new-release-published == 'true'
+    uses: ./.github/workflows/build-python.yml
+    secrets: inherit
+
+  build-rust:
+    name: Build & Publish Rust to crates.io
+    needs: semantic-release
+    if: always() && needs.semantic-release.outputs.new-release-published == 'true'
+    uses: ./.github/workflows/build-rust.yml
+    secrets: inherit
