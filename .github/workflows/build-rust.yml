@@ -2,12 +2,8 @@ name: Build Rust Library
 
 on:
   push:
-    branches:
-      - main
-      - feat/ci-pipeline-4
     tags:
       - 'v*'
-  pull_request:
   workflow_dispatch:
 
 permissions:
