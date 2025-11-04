@@ -1,9 +1,6 @@
 name: Test Release to TestPyPI
 
 on:
-  push:
-    branches:
-      - feat/ci-pipeline
   workflow_dispatch:
 
 permissions:
@@ -52,17 +49,20 @@ jobs:
     name: Publish to TestPyPI
     runs-on: ubuntu-latest
     needs: [linux, sdist]
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/priors
+    permissions:
+      id-token: write
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: wheels-*
           path: dist
+          pattern: wheels-*
           merge-multiple: true
 
       - name: Publish to TestPyPI
-        uses: PyO3/maturin-action@v1
-        env:
-          MATURIN_PYPI_TOKEN: ${{ secrets.TEST_PYPI_PASSWORD }}
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          command: upload
-          args: --non-interactive --skip-existing --repository-url https://test.pypi.org/legacy/ dist/*
+          verbose: true
+          repository-url: https://test.pypi.org/legacy/
