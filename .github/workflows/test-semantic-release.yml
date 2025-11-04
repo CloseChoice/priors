@@ -95,10 +95,42 @@ jobs:
           echo "new-release-published: ${{ steps.semantic.outputs.new-release-published }}"
           echo "new-release-version: ${{ steps.semantic.outputs.new-release-version }}"
 
+  update-version:
+    name: Update Version Files
+    needs: semantic-release
+    if: needs.semantic-release.outputs.new-release-published == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Update version in files
+        run: |
+          VERSION="${{ needs.semantic-release.outputs.new-release-version }}"
+          echo "Updating to version: $VERSION"
+
+          # Update pyproject.toml
+          sed -i "s/^version = .*/version = \"$VERSION\"/" priors/pyproject.toml
+
+          # Update Cargo.toml
+          sed -i "s/^version = .*/version = \"$VERSION\"/" priors/Cargo.toml
+
+          echo "Updated files:"
+          grep "^version" priors/pyproject.toml
+          grep "^version" priors/Cargo.toml
+
+      - name: Upload updated files
+        uses: actions/upload-artifact@v4
+        with:
+          name: version-files
+          path: |
+            priors/pyproject.toml
+            priors/Cargo.toml
+
   build-and-publish:
     name: Build & Publish to TestPyPI
-    needs: semantic-release
-    if: always() && needs.semantic-release.result == 'success'
+    needs: [semantic-release, update-version]
+    if: always() && needs.semantic-release.result == 'success' && needs.update-version.result == 'success'
     uses: ./.github/workflows/test-release.yml
     secrets: inherit
     with:
