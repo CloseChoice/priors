@@ -14,81 +14,15 @@ permissions:
 jobs:
   commitlint:
     name: Validate Commits
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out Git repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 'lts/*'
-
-      - name: Install commitlint
-        run: |
-          npm install -g @commitlint/cli @commitlint/config-conventional
-
-      - name: Validate commits
-        run: npx commitlint --from HEAD~10 --to HEAD --verbose
+    uses: ./.github/workflows/commitlint.yml
 
   tests:
     name: Run Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out Git repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      - name: Install Rust Toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Create virtual environment
-        run: python -m venv .venv
-
-      - name: Install dependencies
-        run: |
-          source .venv/bin/activate
-          python -m pip install --upgrade pip
-          pip install pytest maturin pandas numpy
-
-      - name: Build Rust extension
-        run: |
-          source .venv/bin/activate
-          cd priors
-          maturin develop
-
-      - name: Run tests
-        run: |
-          source .venv/bin/activate
-          cd priors
-          pytest tests/test_comparison.py tests/test_fp_growth.py tests/test_streaming.py -v -m "not slow"
+    uses: ./.github/workflows/tests.yml
 
   linting:
     name: Run Linting
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out Git repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      - name: Install ruff
-        run: pip install ruff
-
-      - name: Run ruff check
-        run: ruff check .
-
-      - name: Run ruff format check
-        run: ruff format --check .
+    uses: ./.github/workflows/linting.yml
 
   semantic-release:
     name: Semantic Release
