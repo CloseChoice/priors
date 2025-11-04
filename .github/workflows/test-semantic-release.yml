@@ -74,8 +74,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Use the test config directly
+          mv .releaserc.test.json .releaserc.json
+
           # Capture semantic-release output
-          OUTPUT=$(npx semantic-release --extends ./.releaserc.test.json 2>&1 || true)
+          OUTPUT=$(npx semantic-release 2>&1 || true)
           echo "$OUTPUT"
 
           # Check if .next-version file was created
