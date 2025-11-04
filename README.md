@@ -2,6 +2,7 @@
 
 Blazing-fast implementation of the FP-Growth algorithm for frequent pattern mining, written in Rust with Python bindings.
 
+
 ## ✨ Features
 
 - **🔥 Fast**: 10-30x faster than Python implementations (mlxtend, efficient-apriori)
