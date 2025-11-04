@@ -10,18 +10,29 @@ permissions:
   contents: write
   issues: write
   pull-requests: write
+  checks: write
 
 jobs:
   commitlint:
     name: Validate Commits
+    permissions:
+      contents: read
+      pull-requests: read
     uses: ./.github/workflows/commitlint.yml
 
   tests:
     name: Run Tests
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
     uses: ./.github/workflows/tests.yml
 
   linting:
     name: Run Linting
+    permissions:
+      checks: write
+      contents: write
     uses: ./.github/workflows/linting.yml
 
   semantic-release:
