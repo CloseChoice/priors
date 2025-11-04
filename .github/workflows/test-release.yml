@@ -3,7 +3,7 @@ name: Test Release to TestPyPI
 on:
   push:
     branches:
-      - ci/ci-pipeline
+      - feat/ci-pipeline
   workflow_dispatch:
 
 permissions:
