@@ -92,7 +92,7 @@ def generate_correlated_transactions(
             )
 
         # Remove duplicates and sort
-        transaction = sorted(list(set(transaction)))
+        transaction = sorted(set(transaction))
         transactions_lists.append(transaction)
 
         # Set binary matrix
@@ -289,7 +289,7 @@ def test_correctness_comparison():
     if len(priors_result) > 0:
         level_1 = priors_result[0]
         for i in range(level_1.shape[0]):
-            priors_1_itemsets.add(tuple([level_1[i, 0]]))
+            priors_1_itemsets.add((level_1[i, 0],))
 
     mlxtend_1_itemsets = set()
     for _, row in mlxtend_result.iterrows():

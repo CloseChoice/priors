@@ -62,7 +62,7 @@ def benchmark(name, func, data, min_sup):
         mem_end = get_memory_mb()
 
         if isinstance(result, list):
-            patterns = sum(len(l) for l in result)
+            patterns = sum(len(itemset_list) for itemset_list in result)
         elif isinstance(result, pd.DataFrame):
             patterns = len(result)
         else:

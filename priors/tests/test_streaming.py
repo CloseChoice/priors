@@ -74,7 +74,7 @@ def test_streaming_vs_regular_basic():
 @pytest.mark.slow
 def test_streaming_vs_mlxtend():
     """Verify streaming matches mlxtend FP-Growth."""
-    mlxtend = pytest.importorskip("mlxtend")
+    pytest.importorskip("mlxtend")
     from mlxtend.frequent_patterns import fpgrowth as mlxtend_fpgrowth
 
     transactions = generate_transactions(100, 15, 5, seed=123)

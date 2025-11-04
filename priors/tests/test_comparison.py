@@ -24,7 +24,7 @@ def test_fpgrowth_vs_mlxtend_basic():
     """Compare priors FP-Growth with mlxtend on basic dataset."""
     import pandas.testing as tm
 
-    mlxtend = pytest.importorskip("mlxtend")
+    pytest.importorskip("mlxtend")
     # Import the conversion utility
     import sys
     from pathlib import Path
@@ -75,14 +75,14 @@ def test_fpgrowth_vs_mlxtend_basic():
     ), f"Itemset count mismatch: priors={priors_count}, mlxtend={mlxtend_count}"
 
     # Compare itemsets and supports (order-independent)
-    priors_set = set(
+    priors_set = {
         (frozenset(row["itemsets"]), row["support"])
         for _, row in priors_result.iterrows()
-    )
-    mlxtend_set = set(
+    }
+    mlxtend_set = {
         (frozenset(row["itemsets"]), row["support"])
         for _, row in mlxtend_result.iterrows()
-    )
+    }
 
     assert (
         priors_set == mlxtend_set
@@ -124,7 +124,7 @@ def test_fpgrowth_vs_efficient_apriori_basic():
     # ea_itemsets format: {1: {(item,): count}, 2: {(item1, item2): count}, ...}
     ea_dict = {}
     if ea_itemsets:
-        for size, itemsets_dict in ea_itemsets.items():
+        for _size, itemsets_dict in ea_itemsets.items():
             for itemset, count in itemsets_dict.items():
                 support = count / num_transactions
                 ea_dict[frozenset(itemset)] = support
@@ -164,7 +164,7 @@ def test_fpgrowth_vs_mlxtend_medium():
     """Compare with mlxtend on medium-sized dataset."""
     import pandas.testing as tm
 
-    mlxtend = pytest.importorskip("mlxtend")
+    pytest.importorskip("mlxtend")
     # Import the conversion utility
     import sys
     from pathlib import Path
@@ -199,14 +199,14 @@ def test_fpgrowth_vs_mlxtend_medium():
     ), f"Itemset count mismatch: priors={priors_count}, mlxtend={mlxtend_count}"
 
     # Compare itemsets and supports (order-independent)
-    priors_set = set(
+    priors_set = {
         (frozenset(row["itemsets"]), row["support"])
         for _, row in priors_result.iterrows()
-    )
-    mlxtend_set = set(
+    }
+    mlxtend_set = {
         (frozenset(row["itemsets"]), row["support"])
         for _, row in mlxtend_result.iterrows()
-    )
+    }
 
     assert (
         priors_set == mlxtend_set

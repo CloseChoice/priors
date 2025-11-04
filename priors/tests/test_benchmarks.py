@@ -291,7 +291,6 @@ def test_transaction_scaling():
         print(f"\nTesting {size:,} transactions...")
 
         transactions = generate_transactions(size, base_items, avg_size, seed=42)
-        dataset_memory = transactions.nbytes / 1024 / 1024
 
         gc.collect()
         start_memory = get_memory_usage()

@@ -42,7 +42,7 @@ class TestPerformanceBenchmarks:
 
         # Benchmark mlxtend if available
         try:
-            mlxtend = pytest.importorskip("mlxtend")
+            pytest.importorskip("mlxtend")
             from mlxtend.frequent_patterns import fpgrowth as mlxtend_fpgrowth
 
             df = pd.DataFrame(
@@ -193,19 +193,19 @@ class TestSpeedBenchmarks:
 
         # Priors FP-Growth
         start = time.time()
-        priors_result = priors.fp_growth(transactions, min_support)
+        _ = priors.fp_growth(transactions, min_support)
         priors_time = time.time() - start
 
         # MLxtend (if available, skip if OOM)
         mlxtend_time = "OOM"
         try:
             if num_trans <= 50000:  # Avoid OOM on larger datasets
-                mlxtend = pytest.importorskip("mlxtend")
+                pytest.importorskip("mlxtend")
                 from mlxtend.frequent_patterns import \
                     fpgrowth as mlxtend_fpgrowth
 
                 start = time.time()
-                mlxtend_result = mlxtend_fpgrowth(
+                _ = mlxtend_fpgrowth(
                     df, min_support=min_support, use_colnames=False
                 )
                 mlxtend_time = f"{time.time() - start:.2f}s"

@@ -178,8 +178,8 @@ def test_all_functions_with_output():
                 for size in sorted(mlxtend_result["size"].unique()):
                     size_df = mlxtend_result[mlxtend_result["size"] == size]
                     print(f"  Level {size} ({size}-itemsets): {len(size_df)} itemsets")
-                    for idx, row in size_df.iterrows():
-                        itemset = sorted(list(row["itemsets"]))
+                    for _idx, row in size_df.iterrows():
+                        itemset = sorted(row["itemsets"])
                         support = row["support"]
                         print(f"    {set(itemset)} (support: {support:.4f})")
 
