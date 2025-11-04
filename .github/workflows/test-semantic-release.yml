@@ -111,20 +111,20 @@ jobs:
 
       - name: Install semantic-release
         run: |
-          npm install -g semantic-release@latest
-          npm install -g @semantic-release/commit-analyzer
-          npm install -g @semantic-release/release-notes-generator
-          npm install -g @semantic-release/git
-          npm install -g @semantic-release/changelog
-          npm install -g @semantic-release/exec
-          npm install -g @semantic-release/github
+          npm install semantic-release@latest
+          npm install @semantic-release/commit-analyzer
+          npm install @semantic-release/release-notes-generator
+          npm install @semantic-release/git
+          npm install @semantic-release/changelog
+          npm install @semantic-release/exec
+          npm install @semantic-release/github
 
       - name: Run semantic-release
         id: semantic
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npx semantic-release --extends ./.releaserc.test.json --dry-run false
+          npx semantic-release --extends ./.releaserc.test.json
           if [ -f .next-version ]; then
             echo "new-release-version=$(cat .next-version)" >> $GITHUB_OUTPUT
             echo "new-release-published=true" >> $GITHUB_OUTPUT
