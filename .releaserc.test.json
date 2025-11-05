@@ -42,7 +42,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "python3 scripts/convert_version.py '${nextRelease.version}' > .next-version"
+        "prepareCmd": "python3 convert_version.py '${nextRelease.version}' > .next-version"
       }
     ],
     [
