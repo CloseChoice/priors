@@ -174,8 +174,8 @@ jobs:
           echo "new-release-published: ${{ steps.semantic.outputs.new-release-published }}"
           echo "new-release-version: ${{ steps.semantic.outputs.new-release-version }}"
 
-  build-and-publish:
-    name: Build & Publish to TestPyPI
+  build-python:
+    name: Build & Publish Python to TestPyPI
     needs: semantic-release
     if: needs.semantic-release.outputs.new-release-published == 'true'
     uses: ./.github/workflows/test-release.yml
@@ -183,3 +183,36 @@ jobs:
     with:
       version: ${{ needs.semantic-release.outputs.new-release-version }}
       skip_publish: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.publish_to_testpypi != 'true' }}
+
+  build-rust:
+    name: Build Rust (Dry-Run)
+    needs: semantic-release
+    if: needs.semantic-release.outputs.new-release-published == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download version files
+        uses: actions/download-artifact@v4
+        with:
+          name: version-files
+          path: priors
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Verify Cargo.toml version
+        working-directory: priors
+        run: |
+          echo "Current Cargo.toml version:"
+          grep "^version" Cargo.toml
+
+      - name: Build Rust library
+        working-directory: priors
+        run: cargo build --release
+
+      - name: Dry-run publish to crates.io
+        working-directory: priors
+        run: |
+          echo "🔍 Simulating crates.io publish (dry-run)..."
+          cargo publish --dry-run --allow-dirty
