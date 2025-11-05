@@ -1,3 +1,10 @@
+## [0.1.1-rc.2](https://github.com/CloseChoice/priors/compare/0.1.1-rc.1...0.1.1-rc.2) (2025-11-05)
+
+
+### Bug Fixes
+
+* use separate version formats for Python (PEP 440) and Rust (SemVer) ([77282b5](https://github.com/CloseChoice/priors/commit/77282b59f96091c0ccbc1990ce13b328142718d6))
+
 ## [0.1.1-rc.1](https://github.com/CloseChoice/priors/compare/v0.1.0...0.1.1-rc.1) (2025-11-05)
 
 
