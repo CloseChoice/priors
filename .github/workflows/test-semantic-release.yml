@@ -177,17 +177,18 @@ jobs:
   build-python:
     name: Build & Publish Python to TestPyPI
     needs: semantic-release
-    if: needs.semantic-release.outputs.new-release-published == 'true'
+    # Always run builds, regardless of whether we publish
     uses: ./.github/workflows/test-release.yml
     secrets: inherit
     with:
       version: ${{ needs.semantic-release.outputs.new-release-version }}
+      # Only publish when manually triggered with checkbox enabled
       skip_publish: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.publish_to_testpypi != 'true' }}
 
   build-rust:
     name: Build Rust (Dry-Run)
     needs: semantic-release
-    if: needs.semantic-release.outputs.new-release-published == 'true'
+    # Always run builds, regardless of whether we publish
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
