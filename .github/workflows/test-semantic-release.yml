@@ -78,9 +78,14 @@ jobs:
           # Check if this is a manual trigger with TestPyPI publish enabled
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.publish_to_testpypi }}" == "true" ]]; then
             echo "🔧 Manual TestPyPI publish: Using run-number based version"
-            TEST_VERSION_BASE="0.0.0-dev.${{ github.run_number }}"
 
-            # Convert to PEP 440 format for Python (0.0.0-dev.41 -> 0.0.0.dev41)
+            # Get current version from pyproject.toml
+            CURRENT_VERSION=$(grep "^version = " priors/pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+            echo "Current version in main: $CURRENT_VERSION"
+
+            TEST_VERSION_BASE="${CURRENT_VERSION}-dev.${{ github.run_number }}"
+
+            # Convert to PEP 440 format for Python (0.1.0-dev.41 -> 0.1.0.dev41)
             PYTHON_VERSION=$(python3 convert_version.py "$TEST_VERSION_BASE" pep440)
             # Keep SemVer format for Rust
             RUST_VERSION=$(python3 convert_version.py "$TEST_VERSION_BASE" semver)
