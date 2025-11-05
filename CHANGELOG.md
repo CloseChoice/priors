@@ -1,3 +1,10 @@
+## [0.1.1-devci.2](https://github.com/CloseChoice/priors/compare/v0.1.1-devci.1...0.1.1-devci.2) (2025-11-05)
+
+
+### Bug Fixes
+
+* version build error ([0809017](https://github.com/CloseChoice/priors/commit/08090174044b6444b18ee652ba07fa50ea5d1517))
+
 ## [0.1.1-devci.1](https://github.com/CloseChoice/priors/compare/v0.1.0...v0.1.1-devci.1) (2025-11-05)
 
 
