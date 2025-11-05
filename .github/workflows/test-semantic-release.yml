@@ -82,16 +82,28 @@ jobs:
           OUTPUT=$(npx semantic-release 2>&1 || true)
           echo "$OUTPUT"
 
-          # Check if .next-version file was created
-          if [ -f .next-version ]; then
-            VERSION=$(cat .next-version)
-            echo "✅ New version created: $VERSION"
-            echo "new-release-version=$VERSION" >> $GITHUB_OUTPUT
+          # Check if version files were created
+          if [ -f .next-version-python ] && [ -f .next-version-rust ]; then
+            PYTHON_VERSION=$(cat .next-version-python)
+            RUST_VERSION=$(cat .next-version-rust)
+            echo "✅ New versions created:"
+            echo "  Python: $PYTHON_VERSION"
+            echo "  Rust: $RUST_VERSION"
+            echo "new-release-version=$RUST_VERSION" >> $GITHUB_OUTPUT
             echo "new-release-published=true" >> $GITHUB_OUTPUT
           else
             echo "ℹ️ No new version (no releasable commits since last release)"
             echo "new-release-published=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Upload version files
+        if: steps.semantic.outputs.new-release-published == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: version-files-source
+          path: |
+            .next-version-python
+            .next-version-rust
 
       - name: Debug outputs
         run: |
@@ -106,6 +118,11 @@ jobs:
     steps:
       - name: Check out Git repository
         uses: actions/checkout@v4
+
+      - name: Download version files
+        uses: actions/download-artifact@v4
+        with:
+          name: version-files-source
 
       - name: Update version in files
         run: |
