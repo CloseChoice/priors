@@ -7,7 +7,7 @@
     },
     {
       "name": "ci/**",
-      "prerelease": "devci"
+      "prerelease": "dev"
     }
   ],
   "tagFormat": "${version}",
