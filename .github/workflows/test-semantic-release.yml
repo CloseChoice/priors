@@ -141,7 +141,6 @@ jobs:
           fi
 
       - name: Update version in files
-        if: steps.semantic.outputs.new-release-published == 'true'
         run: |
           # Read the converted versions
           PYTHON_VERSION=$(cat .next-version-python)
@@ -161,7 +160,6 @@ jobs:
           grep "^version" priors/Cargo.toml
 
       - name: Upload updated files
-        if: steps.semantic.outputs.new-release-published == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: version-files
