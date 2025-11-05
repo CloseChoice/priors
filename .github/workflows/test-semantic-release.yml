@@ -109,14 +109,18 @@ jobs:
 
       - name: Update version in files
         run: |
-          VERSION="${{ needs.semantic-release.outputs.new-release-version }}"
-          echo "Updating to version: $VERSION"
+          # Read the converted versions
+          PYTHON_VERSION=$(cat .next-version-python)
+          RUST_VERSION=$(cat .next-version-rust)
 
-          # Update pyproject.toml
-          sed -i "s/^version = .*/version = \"$VERSION\"/" priors/pyproject.toml
+          echo "Updating Python version to: $PYTHON_VERSION"
+          echo "Updating Rust version to: $RUST_VERSION"
 
-          # Update Cargo.toml
-          sed -i "s/^version = .*/version = \"$VERSION\"/" priors/Cargo.toml
+          # Update pyproject.toml with PEP 440 format
+          sed -i "s/^version = .*/version = \"$PYTHON_VERSION\"/" priors/pyproject.toml
+
+          # Update Cargo.toml with SemVer format
+          sed -i "s/^version = .*/version = \"$RUST_VERSION\"/" priors/Cargo.toml
 
           echo "Updated files:"
           grep "^version" priors/pyproject.toml

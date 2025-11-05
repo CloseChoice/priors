@@ -42,7 +42,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "python3 convert_version.py '${nextRelease.version}' > .next-version"
+        "prepareCmd": "python3 convert_version.py '${nextRelease.version}' pep440 > .next-version-python && python3 convert_version.py '${nextRelease.version}' semver > .next-version-rust"
       }
     ],
     [
