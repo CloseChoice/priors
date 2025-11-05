@@ -1,3 +1,19 @@
+## [0.1.1-rc.1](https://github.com/CloseChoice/priors/compare/v0.1.0...0.1.1-rc.1) (2025-11-05)
+
+
+### Bug Fixes
+
+* pipeline ([b58e4f3](https://github.com/CloseChoice/priors/commit/b58e4f32005516f47be7fb905f066792713465c8))
+* pipeline ([cab3f56](https://github.com/CloseChoice/priors/commit/cab3f563d713d8305d5f7a75b73cebd5cd515888))
+* pipeline ([8ead715](https://github.com/CloseChoice/priors/commit/8ead715329727f725fce6891e6dd4961ce7368ed))
+* pipeline ([bbd41b8](https://github.com/CloseChoice/priors/commit/bbd41b806dbc3adb0e3e1356be077c306eb36e49))
+* pipeline run push to testpypi ([56b6c26](https://github.com/CloseChoice/priors/commit/56b6c26e3f71f5f0d626f44bd36ffa0904f6c843))
+* release ([ce3cd09](https://github.com/CloseChoice/priors/commit/ce3cd091280c0dbae2f018b3ed9981e3f33c7813))
+* testpypi deploy via dev ([064baa2](https://github.com/CloseChoice/priors/commit/064baa2ef82901f907d5286753ea32a4d0472373))
+* use rc prerelease for ci branches and add PEP 440 version converter ([3ea4459](https://github.com/CloseChoice/priors/commit/3ea44592acaecfc63744214728a8262c099c1c75))
+* version build error ([0809017](https://github.com/CloseChoice/priors/commit/08090174044b6444b18ee652ba07fa50ea5d1517))
+* version build error with dev ([42d5ae6](https://github.com/CloseChoice/priors/commit/42d5ae6194bf4c86f7916ba1fc9e6a878a3e5320))
+
 ## [0.1.1-devci.2](https://github.com/CloseChoice/priors/compare/v0.1.1-devci.1...0.1.1-devci.2) (2025-11-05)
 
 
