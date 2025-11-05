@@ -125,17 +125,26 @@ jobs:
             OUTPUT=$(npx semantic-release 2>&1 || true)
             echo "$OUTPUT"
 
-            # Check if version files were created
+            # Check if version files were created by semantic-release
             if [ -f .next-version-python ] && [ -f .next-version-rust ]; then
               PYTHON_VERSION=$(cat .next-version-python)
               RUST_VERSION=$(cat .next-version-rust)
-              echo "✅ New versions created:"
+              echo "✅ New versions created by semantic-release:"
               echo "  Python: $PYTHON_VERSION"
               echo "  Rust: $RUST_VERSION"
               echo "new-release-version=$RUST_VERSION" >> $GITHUB_OUTPUT
               echo "new-release-published=true" >> $GITHUB_OUTPUT
             else
-              echo "ℹ️ No new version (no releasable commits since last release)"
+              # No new release, but we still need version files for builds
+              # Use current version from pyproject.toml
+              CURRENT_VERSION=$(grep "^version = " priors/pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+              echo "ℹ️ No releasable commits, using current version for builds: $CURRENT_VERSION"
+
+              # Create version files with current version
+              echo "$CURRENT_VERSION" > .next-version-python
+              echo "$CURRENT_VERSION" > .next-version-rust
+
+              echo "new-release-version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
               echo "new-release-published=false" >> $GITHUB_OUTPUT
             fi
           fi
