@@ -99,30 +99,7 @@ jobs:
 
             # Query TestPyPI API for existing dev versions
             echo "🔍 Checking TestPyPI for existing dev versions of ${NEXT_VERSION}..."
-            PACKAGE_NAME="priors"
-            API_URL="https://test.pypi.org/pypi/${PACKAGE_NAME}/json"
-
-            # Get highest dev number for this base version
-            HIGHEST_DEV=$(curl -s "$API_URL" | python3 -c "
-            import sys, json, re
-            try:
-                data = json.load(sys.stdin)
-                versions = data.get('releases', {}).keys()
-
-                # Filter for dev versions matching our base version
-                base = '${NEXT_VERSION}'
-                pattern = re.escape(base) + r'\.dev(\d+)'
-
-                dev_numbers = []
-                for v in versions:
-                    match = re.match(pattern, v)
-                    if match:
-                        dev_numbers.append(int(match.group(1)))
-
-                print(max(dev_numbers) if dev_numbers else 0)
-            except:
-                print(0)
-            " || echo "0")
+            HIGHEST_DEV=$(python3 get_next_dev_version.py "${NEXT_VERSION}")
 
             # Increment dev number
             DEV_NUMBER=$((HIGHEST_DEV + 1))
