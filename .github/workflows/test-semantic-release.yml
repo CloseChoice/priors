@@ -87,10 +87,13 @@ jobs:
             echo "$OUTPUT"
 
             # Check if semantic-release calculated a new version
-            if [ -f .next-version-python ] && [ -f .next-version-rust ]; then
+            if [ -f .next-version-rust ]; then
               # Semantic release found releasable commits and calculated next version
               NEXT_VERSION=$(cat .next-version-rust)
               echo "📈 Next release version would be: $NEXT_VERSION"
+
+              # Clean up the generated version files since we'll recreate them with dev suffix
+              rm -f .next-version-python .next-version-rust
             else
               # No releasable commits, use current version
               NEXT_VERSION=$(grep "^version = " priors/pyproject.toml | sed 's/version = "\(.*\)"/\1/')

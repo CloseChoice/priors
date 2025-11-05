@@ -4,11 +4,11 @@
     "main",
     {
       "name": "feat/**",
-      "prerelease": "dev"
+      "prerelease": false
     },
     {
       "name": "ci/**",
-      "prerelease": "rc"
+      "prerelease": false
     }
   ],
   "tagFormat": "${version}",
