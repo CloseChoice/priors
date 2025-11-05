@@ -7,7 +7,7 @@
     },
     {
       "name": "ci/**",
-      "prerelease": "dev-ci"
+      "prerelease": "dev"
     }
   ],
   "plugins": [
