@@ -10,6 +10,7 @@
       "prerelease": "devci"
     }
   ],
+  "tagFormat": "${version}",
   "plugins": [
     [
       "@semantic-release/commit-analyzer",
@@ -41,7 +42,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "echo ${nextRelease.version} > .next-version"
+        "prepareCmd": "python3 scripts/convert_version.py '${nextRelease.version}' > .next-version"
       }
     ],
     [
