@@ -107,35 +107,8 @@ jobs:
             fi
           fi
 
-      - name: Upload version files
-        if: steps.semantic.outputs.new-release-published == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: version-files-source
-          path: |
-            .next-version-python
-            .next-version-rust
-
-      - name: Debug outputs
-        run: |
-          echo "new-release-published: ${{ steps.semantic.outputs.new-release-published }}"
-          echo "new-release-version: ${{ steps.semantic.outputs.new-release-version }}"
-
-  update-version:
-    name: Update Version Files
-    needs: semantic-release
-    if: needs.semantic-release.outputs.new-release-published == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out Git repository
-        uses: actions/checkout@v4
-
-      - name: Download version files
-        uses: actions/download-artifact@v4
-        with:
-          name: version-files-source
-
       - name: Update version in files
+        if: steps.semantic.outputs.new-release-published == 'true'
         run: |
           # Read the converted versions
           PYTHON_VERSION=$(cat .next-version-python)
@@ -155,6 +128,7 @@ jobs:
           grep "^version" priors/Cargo.toml
 
       - name: Upload updated files
+        if: steps.semantic.outputs.new-release-published == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: version-files
@@ -162,10 +136,15 @@ jobs:
             priors/pyproject.toml
             priors/Cargo.toml
 
+      - name: Debug outputs
+        run: |
+          echo "new-release-published: ${{ steps.semantic.outputs.new-release-published }}"
+          echo "new-release-version: ${{ steps.semantic.outputs.new-release-version }}"
+
   build-and-publish:
     name: Build & Publish to TestPyPI
-    needs: [semantic-release, update-version]
-    if: always() && needs.semantic-release.result == 'success' && needs.update-version.result == 'success'
+    needs: semantic-release
+    if: needs.semantic-release.outputs.new-release-published == 'true'
     uses: ./.github/workflows/test-release.yml
     secrets: inherit
     with:
