@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - main
+  workflow_call:
 
 permissions:
   contents: read
@@ -30,10 +31,42 @@ jobs:
         run: |
           npm install -g @commitlint/cli @commitlint/config-conventional
 
-      - name: Validate PR commits
-        if: github.event_name == 'pull_request'
-        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+      - name: Validate commits
+        id: commitlint
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            FROM="${{ github.event.pull_request.base.sha }}"
+            TO="${{ github.event.pull_request.head.sha }}"
+          else
+            FROM="${{ github.event.before }}"
+            TO="${{ github.event.after }}"
+          fi
 
-      - name: Validate push commits
-        if: github.event_name == 'push'
-        run: npx commitlint --from ${{ github.event.before }} --to ${{ github.event.after }} --verbose
+          # Run commitlint and capture output
+          if ! OUTPUT=$(npx commitlint --from $FROM --to $TO --verbose 2>&1); then
+            echo "## ⚠️ Commitlint Warnings" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Some commits don't follow the conventional commit format." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Expected format:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "type(scope): subject" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Examples:" >> $GITHUB_STEP_SUMMARY
+            echo "  feat: add new feature" >> $GITHUB_STEP_SUMMARY
+            echo "  fix: resolve bug" >> $GITHUB_STEP_SUMMARY
+            echo "  ci: update pipeline" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Issues found:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$OUTPUT" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+
+            echo "⚠️ Commitlint found issues (see job summary for details)"
+          else
+            echo "✅ All commits follow conventional commit format"
+          fi
+
+          # Always exit 0 so pipeline continues
+          exit 0

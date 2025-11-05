@@ -1,11 +1,17 @@
 {
+  "dryRun": true,
   "branches": [
     "main",
     {
       "name": "feat/**",
-      "prerelease": "rc"
+      "prerelease": false
+    },
+    {
+      "name": "ci/**",
+      "prerelease": false
     }
   ],
+  "tagFormat": "${version}",
   "plugins": [
     [
       "@semantic-release/commit-analyzer",
@@ -37,7 +43,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "echo ${nextRelease.version} > .next-version"
+        "prepareCmd": "python3 convert_version.py '${nextRelease.version}' pep440 > .next-version-python && python3 convert_version.py '${nextRelease.version}' semver > .next-version-rust"
       }
     ],
     [
@@ -49,3 +55,6 @@
     ]
   ]
 }
+
+
+
