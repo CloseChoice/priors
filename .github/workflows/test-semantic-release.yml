@@ -78,11 +78,19 @@ jobs:
           # Check if this is a manual trigger with TestPyPI publish enabled
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.publish_to_testpypi }}" == "true" ]]; then
             echo "🔧 Manual TestPyPI publish: Using run-number based version"
-            TEST_VERSION="0.0.0-test.${{ github.run_number }}"
-            echo "$TEST_VERSION" > .next-version-python
-            echo "$TEST_VERSION" > .next-version-rust
-            echo "✅ Test version created: $TEST_VERSION"
-            echo "new-release-version=$TEST_VERSION" >> $GITHUB_OUTPUT
+            TEST_VERSION_BASE="0.0.0-dev.${{ github.run_number }}"
+
+            # Convert to PEP 440 format for Python (0.0.0-dev.41 -> 0.0.0.dev41)
+            PYTHON_VERSION=$(python3 convert_version.py "$TEST_VERSION_BASE" pep440)
+            # Keep SemVer format for Rust
+            RUST_VERSION=$(python3 convert_version.py "$TEST_VERSION_BASE" semver)
+
+            echo "$PYTHON_VERSION" > .next-version-python
+            echo "$RUST_VERSION" > .next-version-rust
+            echo "✅ Test versions created:"
+            echo "  Python (PEP 440): $PYTHON_VERSION"
+            echo "  Rust (SemVer): $RUST_VERSION"
+            echo "new-release-version=$RUST_VERSION" >> $GITHUB_OUTPUT
             echo "new-release-published=true" >> $GITHUB_OUTPUT
           else
             # Use the test config directly
