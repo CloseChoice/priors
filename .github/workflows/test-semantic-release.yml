@@ -75,33 +75,45 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Use the test config directly
+          mv .releaserc.test.json .releaserc.json
+
           # Check if this is a manual trigger with TestPyPI publish enabled
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.publish_to_testpypi }}" == "true" ]]; then
-            echo "🔧 Manual TestPyPI publish: Using run-number based version"
+            echo "🔧 Manual TestPyPI publish: Let semantic-release calculate next version"
 
-            # Get current version from pyproject.toml
-            CURRENT_VERSION=$(grep "^version = " priors/pyproject.toml | sed 's/version = "\(.*\)"/\1/')
-            echo "Current version in main: $CURRENT_VERSION"
+            # Run semantic-release in dry-run to calculate next version
+            OUTPUT=$(npx semantic-release 2>&1 || true)
+            echo "$OUTPUT"
 
-            TEST_VERSION_BASE="${CURRENT_VERSION}-dev.${{ github.run_number }}"
+            # Check if semantic-release calculated a new version
+            if [ -f .next-version-python ] && [ -f .next-version-rust ]; then
+              # Semantic release found releasable commits and calculated next version
+              NEXT_VERSION=$(cat .next-version-rust)
+              echo "📈 Next release version would be: $NEXT_VERSION"
+            else
+              # No releasable commits, use current version
+              NEXT_VERSION=$(grep "^version = " priors/pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+              echo "ℹ️ No releasable commits, using current version: $NEXT_VERSION"
+            fi
 
-            # Convert to PEP 440 format for Python (0.1.0-dev.41 -> 0.1.0.dev41)
+            # Append dev suffix with run number
+            TEST_VERSION_BASE="${NEXT_VERSION}-dev.${{ github.run_number }}"
+
+            # Convert to PEP 440 format for Python (0.1.1-dev.45 -> 0.1.1.dev45)
             PYTHON_VERSION=$(python3 convert_version.py "$TEST_VERSION_BASE" pep440)
             # Keep SemVer format for Rust
             RUST_VERSION=$(python3 convert_version.py "$TEST_VERSION_BASE" semver)
 
             echo "$PYTHON_VERSION" > .next-version-python
             echo "$RUST_VERSION" > .next-version-rust
-            echo "✅ Test versions created:"
+            echo "✅ Dev versions created for TestPyPI:"
             echo "  Python (PEP 440): $PYTHON_VERSION"
             echo "  Rust (SemVer): $RUST_VERSION"
             echo "new-release-version=$RUST_VERSION" >> $GITHUB_OUTPUT
             echo "new-release-published=true" >> $GITHUB_OUTPUT
           else
-            # Use the test config directly
-            mv .releaserc.test.json .releaserc.json
-
-            # Capture semantic-release output
+            # Normal push: just run semantic-release
             OUTPUT=$(npx semantic-release 2>&1 || true)
             echo "$OUTPUT"
 
