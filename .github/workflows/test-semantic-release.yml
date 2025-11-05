@@ -97,8 +97,39 @@ jobs:
               echo "ℹ️ No releasable commits, using current version: $NEXT_VERSION"
             fi
 
-            # Append dev suffix with run number
-            TEST_VERSION_BASE="${NEXT_VERSION}-dev.${{ github.run_number }}"
+            # Query TestPyPI API for existing dev versions
+            echo "🔍 Checking TestPyPI for existing dev versions of ${NEXT_VERSION}..."
+            PACKAGE_NAME="priors"
+            API_URL="https://test.pypi.org/pypi/${PACKAGE_NAME}/json"
+
+            # Get highest dev number for this base version
+            HIGHEST_DEV=$(curl -s "$API_URL" | python3 -c "
+            import sys, json, re
+            try:
+                data = json.load(sys.stdin)
+                versions = data.get('releases', {}).keys()
+
+                # Filter for dev versions matching our base version
+                base = '${NEXT_VERSION}'
+                pattern = re.escape(base) + r'\.dev(\d+)'
+
+                dev_numbers = []
+                for v in versions:
+                    match = re.match(pattern, v)
+                    if match:
+                        dev_numbers.append(int(match.group(1)))
+
+                print(max(dev_numbers) if dev_numbers else 0)
+            except:
+                print(0)
+            " || echo "0")
+
+            # Increment dev number
+            DEV_NUMBER=$((HIGHEST_DEV + 1))
+            echo "🔢 Next dev number for ${NEXT_VERSION}: ${DEV_NUMBER}"
+
+            # Append dev suffix with incremented number
+            TEST_VERSION_BASE="${NEXT_VERSION}-dev.${DEV_NUMBER}"
 
             # Convert to PEP 440 format for Python (0.1.1-dev.45 -> 0.1.1.dev45)
             PYTHON_VERSION=$(python3 convert_version.py "$TEST_VERSION_BASE" pep440)
