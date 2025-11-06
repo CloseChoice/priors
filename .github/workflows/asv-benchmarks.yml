@@ -48,13 +48,17 @@ jobs:
 
       - name: Configure ASV machine
         run: |
+          # Get the actual machine hostname
+          MACHINE_NAME=$(hostname)
+          echo "Machine name: $MACHINE_NAME"
+
           mkdir -p .asv
-          cat > .asv/asv-machine.json << 'EOF'
+          cat > .asv/asv-machine.json << EOF
           {
-            "github-actions": {
+            "$MACHINE_NAME": {
               "arch": "x86_64",
               "cpu": "GitHub Actions Runner",
-              "machine": "github-actions",
+              "machine": "$MACHINE_NAME",
               "num_cpu": "2",
               "os": "Linux",
               "ram": "7GB",
@@ -62,6 +66,9 @@ jobs:
             }
           }
           EOF
+
+          echo "ASV machine configuration created for $MACHINE_NAME"
+          cat .asv/asv-machine.json
 
       - name: Run benchmarks
         run: |
