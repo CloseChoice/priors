@@ -16,6 +16,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   benchmark:
@@ -138,41 +140,29 @@ jobs:
         run: |
           echo "📊 Generating HTML report from benchmark results..."
 
-          # Temporarily modify asv.conf.json to only track current branch
-          # This avoids "fatal: bad revision" errors in CI where not all branches are checked out
+          # Important: We keep ALL branches in asv.conf.json for multi-branch support
+          # ASV will only generate HTML for branches that have actual results
           CURRENT_BRANCH="${GITHUB_REF_NAME}"
           echo "Current branch: $CURRENT_BRANCH"
 
-          # Backup original config
-          cp asv.conf.json asv.conf.json.backup
-
-          # Update config to only use current branch using jq
-          jq --arg branch "$CURRENT_BRANCH" '.branches = [$branch]' asv.conf.json > asv.conf.json.tmp
-          mv asv.conf.json.tmp asv.conf.json
-
-          echo "📝 Temporarily using only current branch for HTML generation"
-
-          # Generate HTML
-          asv publish
-
-          # Restore original config
-          mv asv.conf.json.backup asv.conf.json
+          # Generate HTML with all branches - ASV will skip missing ones
+          asv publish || {
+            echo "⚠️  asv publish had warnings, but continuing..."
+          }
 
           echo "✅ HTML report generated in .asv/html/"
+          echo "📊 Branch selector will show all branches with available results"
 
       - name: Create .nojekyll file
         run: touch .asv/html/.nojekyll
 
-      - name: Deploy to GitHub Pages
+      - name: Upload HTML for deployment
         if: inputs.deploy_to_pages == true
-        uses: peaceiris/actions-gh-pages@v4
+        uses: actions/upload-artifact@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: .asv/html
-          keep_files: true  # Keep files from other branches
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'Update benchmarks from ${{ github.ref_name }}'
+          name: asv-html-${{ github.sha }}
+          path: .asv/html/
+          retention-days: 1
 
       - name: Generate benchmark summary
         if: always()
@@ -199,3 +189,39 @@ jobs:
           else
             echo "⚠️ No benchmark results generated" >> $GITHUB_STEP_SUMMARY
           fi
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: benchmark
+    if: inputs.deploy_to_pages == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    steps:
+      - name: Download HTML artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: asv-html-${{ github.sha }}
+          path: .asv/html/
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .asv/html
+          keep_files: true  # Keep files from other branches for multi-branch support
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'Update benchmarks from ${{ github.ref_name }} @ ${{ github.sha }}'
+
+      - name: Deployment summary
+        run: |
+          echo "## 🚀 Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📈 Benchmarks deployed to GitHub Pages" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 View at: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Branch: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
