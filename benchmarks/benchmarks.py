@@ -24,6 +24,7 @@ class FPGrowthSmall:
 
     def setup(self):
         import priors
+
         self.priors = priors
         self.transactions = generate_transactions(1000, 30, 8, seed=42)
         self.min_support = 0.05
@@ -42,6 +43,7 @@ class FPGrowthMedium:
 
     def setup(self):
         import priors
+
         self.priors = priors
         self.transactions = generate_transactions(5000, 50, 12, seed=42)
         self.min_support = 0.03
@@ -60,6 +62,7 @@ class FPGrowthLarge:
 
     def setup(self):
         import priors
+
         self.priors = priors
         self.transactions = generate_transactions(10000, 80, 15, seed=42)
         self.min_support = 0.02
@@ -78,6 +81,7 @@ class FPGrowthXLarge:
 
     def setup(self):
         import priors
+
         self.priors = priors
         self.transactions = generate_transactions(50000, 100, 20, seed=42)
         self.min_support = 0.01
@@ -96,6 +100,7 @@ class FPGrowthStreamingSmall:
 
     def setup(self):
         import priors
+
         self.priors = priors
         self.transactions = generate_transactions(1000, 30, 8, seed=42)
         self.min_support = 0.05
@@ -112,11 +117,12 @@ class FPGrowthStreamingSmall:
 class TransactionScaling:
     """Benchmark how FP-Growth scales with transaction count."""
 
-    param_names = ['num_transactions']
+    param_names = ["num_transactions"]
     params = [[1000, 5000, 10000, 25000, 50000]]
 
     def setup(self, num_transactions):
         import priors
+
         self.priors = priors
         self.transactions = generate_transactions(num_transactions, 50, 12, seed=42)
         self.min_support = 0.03
@@ -129,11 +135,12 @@ class TransactionScaling:
 class ItemScaling:
     """Benchmark how FP-Growth scales with item count."""
 
-    param_names = ['num_items']
+    param_names = ["num_items"]
     params = [[20, 50, 100, 200]]
 
     def setup(self, num_items):
         import priors
+
         self.priors = priors
         self.transactions = generate_transactions(5000, num_items, 12, seed=42)
         self.min_support = 0.03
@@ -146,11 +153,12 @@ class ItemScaling:
 class SupportThreshold:
     """Benchmark how FP-Growth performs with different support thresholds."""
 
-    param_names = ['min_support']
+    param_names = ["min_support"]
     params = [[0.01, 0.03, 0.05, 0.10]]
 
     def setup(self, min_support):
         import priors
+
         self.priors = priors
         self.transactions = generate_transactions(10000, 80, 15, seed=42)
 
