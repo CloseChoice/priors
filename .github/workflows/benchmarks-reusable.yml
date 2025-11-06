@@ -147,14 +147,14 @@ jobs:
           cp asv.conf.json asv.conf.json.backup
 
           # Update config to only use current branch
-          python3 << EOF
+          python3 -c "
 import json
 with open('asv.conf.json', 'r') as f:
     config = json.load(f)
 config['branches'] = ['$CURRENT_BRANCH']
 with open('asv.conf.json', 'w') as f:
     json.dump(config, f, indent=2)
-EOF
+"
 
           echo "📝 Temporarily using only current branch for HTML generation"
 
