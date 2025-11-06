@@ -252,6 +252,8 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: .asv/html
           keep_files: true  # Keep files from other branches for multi-branch support
+          force_orphan: false  # Don't force orphan to preserve history
+          enable_jekyll: false  # Disable Jekyll to allow dotfiles
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
           commit_message: 'Update benchmarks from ${{ github.ref_name }} @ ${{ github.sha }}'
