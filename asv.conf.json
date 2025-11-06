@@ -4,7 +4,7 @@
     "project_url": "https://github.com/CloseChoice/priors",
     "repo": ".",
     "repo_subdir": "priors",
-    "branches": ["ci/benchmarking", "improve-speed", "main"],
+    "branches": ["main", "improve-speed", "feat/**", "ci/**"],
     "dvcs": "git",
     "environment_type": "virtualenv",
     "show_commit_url": "https://github.com/CloseChoice/priors/commit/",

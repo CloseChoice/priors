@@ -96,6 +96,16 @@ jobs:
           echo "new-release-version: ${{ steps.semantic.outputs.new-release-version }}"
           echo "new-release-git-tag: ${{ steps.semantic.outputs.new-release-git-tag }}"
 
+  benchmarks:
+    name: Run Benchmarks
+    needs: [commitlint, tests, linting]
+    permissions:
+      contents: write
+    uses: ./.github/workflows/benchmarks-reusable.yml
+    with:
+      deploy_to_pages: true  # Deploy production benchmarks to GitHub Pages
+      cache_key_prefix: 'prod'
+
   build-python:
     name: Build & Publish Python to PyPI
     needs: semantic-release

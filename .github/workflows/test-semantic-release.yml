@@ -192,6 +192,16 @@ jobs:
       # Only publish when manually triggered with checkbox enabled
       skip_publish: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.publish_to_testpypi != 'true' }}
 
+  benchmarks:
+    name: Run Benchmarks
+    needs: [commitlint, tests, linting]
+    permissions:
+      contents: write
+    uses: ./.github/workflows/benchmarks-reusable.yml
+    with:
+      deploy_to_pages: false  # Don't deploy test benchmarks to pages
+      cache_key_prefix: 'test'
+
   build-rust:
     name: Build Rust (Dry-Run)
     needs: semantic-release

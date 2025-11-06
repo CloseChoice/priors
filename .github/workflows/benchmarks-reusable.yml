@@ -1,15 +1,18 @@
-name: ASV Benchmarks
+name: ASV Benchmarks (Reusable)
 
 on:
-  push:
-    branches:
-      - ci/benchmarking
-      - main
-  pull_request:
-    branches:
-      - ci/benchmarking
-      - main
-  workflow_dispatch:  # Allow manual trigger
+  workflow_call:
+    inputs:
+      deploy_to_pages:
+        description: 'Deploy results to GitHub Pages'
+        required: false
+        type: boolean
+        default: false
+      cache_key_prefix:
+        description: 'Prefix for cache key (e.g., test, prod)'
+        required: false
+        type: string
+        default: 'asv'
 
 permissions:
   contents: write
@@ -22,16 +25,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Full history for ASV
-
-      - name: Restore ASV results cache
-        uses: actions/cache@v4
-        with:
-          path: .asv/results
-          key: asv-results-${{ github.ref_name }}-${{ github.sha }}
-          restore-keys: |
-            asv-results-${{ github.ref_name }}-
-            asv-results-main-
-            asv-results-
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -46,12 +39,21 @@ jobs:
           python -m pip install --upgrade pip
           pip install asv virtualenv
 
+      - name: Restore ASV results cache
+        uses: actions/cache@v4
+        with:
+          path: .asv/results
+          key: ${{ inputs.cache_key_prefix }}-results-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            ${{ inputs.cache_key_prefix }}-results-${{ github.ref_name }}-
+            ${{ inputs.cache_key_prefix }}-results-main-
+            ${{ inputs.cache_key_prefix }}-results-
+
       - name: Configure ASV machine
         run: |
           echo "Configuring ASV machine..."
 
           # Use asv machine command to register the machine non-interactively
-          # This is the proper way to set up the machine in ASV
           echo -e "\n\n\n\n\n\n" | asv machine --yes || {
             echo "Warning: asv machine command failed, trying alternative approach..."
 
@@ -74,7 +76,6 @@ jobs:
           }
 
           echo "✅ ASV machine configuration complete"
-          cat .asv/asv-machine.json 2>/dev/null || echo "Using asv's auto-generated config"
 
       - name: Run benchmarks
         run: |
@@ -124,35 +125,36 @@ jobs:
 
           echo "✅ Benchmark run completed!"
 
+      - name: Store results as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: asv-results-${{ github.ref_name }}-${{ github.sha }}
+          path: .asv/results/
+          retention-days: 90
+
       - name: Generate HTML report
         run: |
           echo "📊 Generating HTML report from benchmark results..."
 
-          # Temporarily modify asv.conf.json to only track current branch
-          # This avoids "fatal: bad revision" errors in CI
-          CURRENT_BRANCH="${GITHUB_REF_NAME}"
-          echo "Current branch: $CURRENT_BRANCH"
-
-          # Backup original config
-          cp asv.conf.json asv.conf.json.backup
-
-          # Update config to only use current branch
-          python3 << EOF
-import json
-with open('asv.conf.json', 'r') as f:
-    config = json.load(f)
-config['branches'] = ['$CURRENT_BRANCH']
-with open('asv.conf.json', 'w') as f:
-    json.dump(config, f, indent=2)
-EOF
-
-          # Generate HTML
+          # For multi-branch support: Keep all branches in config
+          # ASV will handle missing branches gracefully
           asv publish
 
-          # Restore original config
-          mv asv.conf.json.backup asv.conf.json
-
           echo "✅ HTML report generated in .asv/html/"
+
+      - name: Create .nojekyll file
+        run: touch .asv/html/.nojekyll
+
+      - name: Deploy to GitHub Pages
+        if: inputs.deploy_to_pages == true
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .asv/html
+          keep_files: true  # Keep files from other branches
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'Update benchmarks from ${{ github.ref_name }}'
 
       - name: Generate benchmark summary
         if: always()
@@ -171,42 +173,11 @@ EOF
             git log -5 --oneline >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
-            echo "📈 View full results at: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ inputs.deploy_to_pages }}" == "true" ]; then
+              echo "📈 View full results at: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "📦 Results stored as artifact (no deployment)" >> $GITHUB_STEP_SUMMARY
+            fi
           else
             echo "⚠️ No benchmark results generated" >> $GITHUB_STEP_SUMMARY
           fi
-
-      - name: Create .nojekyll file
-        run: touch .asv/html/.nojekyll
-
-      - name: Deploy to GitHub Pages
-        if: github.ref == 'refs/heads/ci/benchmarking' || github.ref == 'refs/heads/main'
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: .asv/html
-          force_orphan: true
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'Update benchmarks from ${{ github.ref_name }}'
-
-      - name: Comment PR with benchmark results
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const message = `## 📊 Benchmark Results
-
-            Benchmarks have been run for this PR.
-
-            📈 View the full results at: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
-
-            The benchmarks compare performance across different dataset sizes and configurations.
-            `;
-
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: message
-            });
