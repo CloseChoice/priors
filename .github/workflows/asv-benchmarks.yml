@@ -76,6 +76,13 @@ jobs:
 
           echo "🔍 Checking for existing benchmark results..."
 
+          # Get machine name for ASV
+          MACHINE_NAME=$(hostname)
+          echo "Using machine: $MACHINE_NAME"
+
+          # Set ASV to use the machine without interactive prompt
+          export ASV_MACHINE="$MACHINE_NAME"
+
           # Strategy for incremental benchmarks:
           # 1. If results exist: Only benchmark NEW commits (since last run)
           # 2. If no results: Full benchmark from 0.1.0 release (5adfd57)
@@ -86,11 +93,11 @@ jobs:
             echo "📊 This will only benchmark NEW commits since last run (much faster!)"
 
             # Try incremental benchmark
-            if asv run NEW --show-stderr --quick; then
+            if asv run NEW --show-stderr --quick --machine="$MACHINE_NAME"; then
               echo "✅ Incremental benchmark completed"
             else
               echo "⚠️  No new commits to benchmark, ensuring HEAD is benchmarked..."
-              asv run HEAD^! --show-stderr --quick || true
+              asv run HEAD^! --show-stderr --quick --machine="$MACHINE_NAME" || true
             fi
           else
             echo "🆕 No previous results found - running initial full benchmark"
@@ -98,16 +105,16 @@ jobs:
             echo "⏱️  This will take ~5-10 minutes for the first run..."
 
             # Full benchmark from 0.1.0 release
-            asv run 5adfd57..HEAD --show-stderr --quick || {
+            asv run 5adfd57..HEAD --show-stderr --quick --machine="$MACHINE_NAME" || {
               echo "⚠️  Some commits failed to build, continuing..."
               # Ensure at least HEAD is benchmarked
-              asv run HEAD^! --show-stderr --quick
+              asv run HEAD^! --show-stderr --quick --machine="$MACHINE_NAME"
             }
           fi
 
           # Verify HEAD was benchmarked
           echo "🔍 Verifying HEAD commit is benchmarked..."
-          asv run HEAD^! --show-stderr --quick || echo "⚠️  HEAD already benchmarked"
+          asv run HEAD^! --show-stderr --quick --machine="$MACHINE_NAME" || echo "⚠️  HEAD already benchmarked"
 
           echo "✅ Benchmark run completed!"
 
