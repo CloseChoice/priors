@@ -136,16 +136,47 @@ jobs:
           path: .asv/results/
           retention-days: 90
 
+      - name: Download existing results from gh-pages
+        if: inputs.deploy_to_pages == true
+        continue-on-error: true
+        run: |
+          echo "📥 Downloading existing benchmark results from gh-pages..."
+
+          # Fetch gh-pages branch
+          git fetch origin gh-pages || {
+            echo "ℹ️  No gh-pages branch yet, this will be the first deployment"
+            exit 0
+          }
+
+          # Check if .asv/results exists on gh-pages
+          if git ls-tree -r origin/gh-pages --name-only | grep -q "^\.asv/results/"; then
+            echo "✅ Found existing results on gh-pages"
+
+            # Create temp directory and extract results
+            mkdir -p /tmp/gh-pages-results
+            git archive origin/gh-pages .asv/results | tar -x -C /tmp/gh-pages-results
+
+            # Merge with current results (don't overwrite new results)
+            if [ -d "/tmp/gh-pages-results/.asv/results" ]; then
+              cp -rn /tmp/gh-pages-results/.asv/results/* .asv/results/ 2>/dev/null || true
+              echo "✅ Merged existing results with new results"
+            fi
+
+            rm -rf /tmp/gh-pages-results
+          else
+            echo "ℹ️  No existing results found in gh-pages"
+          fi
+
       - name: Generate HTML report
         run: |
           echo "📊 Generating HTML report from benchmark results..."
 
           # Important: We keep ALL branches in asv.conf.json for multi-branch support
-          # ASV will only generate HTML for branches that have actual results
+          # ASV will now see results from all branches and generate the branch selector
           CURRENT_BRANCH="${GITHUB_REF_NAME}"
           echo "Current branch: $CURRENT_BRANCH"
 
-          # Generate HTML with all branches - ASV will skip missing ones
+          # Generate HTML with all branches - ASV will create selector if multiple branches exist
           asv publish || {
             echo "⚠️  asv publish had warnings, but continuing..."
           }
@@ -155,6 +186,14 @@ jobs:
 
       - name: Create .nojekyll file
         run: touch .asv/html/.nojekyll
+
+      - name: Copy results to HTML directory for gh-pages
+        if: inputs.deploy_to_pages == true
+        run: |
+          echo "📋 Copying benchmark results to HTML directory..."
+          # Copy results so they persist on gh-pages
+          cp -r .asv/results .asv/html/.asv/results
+          echo "✅ Results copied to .asv/html/.asv/results"
 
       - name: Upload HTML for deployment
         if: inputs.deploy_to_pages == true
