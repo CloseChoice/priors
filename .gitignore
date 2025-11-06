@@ -1,3 +1,6 @@
 target
 .venv
 __pycache__
+
+# ASV benchmark results
+.asv/

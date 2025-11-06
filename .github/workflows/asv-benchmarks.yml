@@ -1,0 +1,99 @@
+name: ASV Benchmarks
+
+on:
+  push:
+    branches:
+      - ci/benchmarking
+      - main
+  pull_request:
+    branches:
+      - ci/benchmarking
+      - main
+  workflow_dispatch:  # Allow manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for ASV
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install asv virtualenv
+
+      - name: Configure ASV machine
+        run: |
+          mkdir -p .asv
+          cat > .asv/asv-machine.json << 'EOF'
+          {
+            "github-actions": {
+              "arch": "x86_64",
+              "cpu": "GitHub Actions Runner",
+              "machine": "github-actions",
+              "num_cpu": "2",
+              "os": "Linux",
+              "ram": "7GB",
+              "version": 1
+            }
+          }
+          EOF
+
+      - name: Run benchmarks
+        run: |
+          # Run benchmarks starting from commit 5adfd57 (0.1.0 release) to avoid old Python 3.10 issues
+          # This ensures we only benchmark commits with compatible Python versions
+          asv run 5adfd57..HEAD --show-stderr --quick || true
+          asv run HEAD^! --show-stderr --quick
+
+      - name: Generate HTML report
+        run: asv publish
+
+      - name: Create .nojekyll file
+        run: touch .asv/html/.nojekyll
+
+      - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/ci/benchmarking' || github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .asv/html
+          force_orphan: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'Update benchmarks from ${{ github.ref_name }}'
+
+      - name: Comment PR with benchmark results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const message = `## 📊 Benchmark Results
+
+            Benchmarks have been run for this PR.
+
+            📈 View the full results at: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+
+            The benchmarks compare performance across different dataset sizes and configurations.
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            });
