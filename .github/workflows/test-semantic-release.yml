@@ -5,6 +5,12 @@ on:
     branches:
       - 'feat/**'
       - 'ci/**'
+      - 'improve-speed'
+  pull_request:
+    branches:
+      - 'feat/**'
+      - 'ci/**'
+      - 'improve-speed'
   workflow_dispatch:
     inputs:
       publish_to_testpypi:
@@ -197,9 +203,11 @@ jobs:
     needs: [commitlint, tests, linting]
     permissions:
       contents: write
+      pages: write
+      id-token: write
     uses: ./.github/workflows/benchmarks-reusable.yml
     with:
-      deploy_to_pages: false  # Don't deploy test benchmarks to pages
+      deploy_to_pages: true  # Deploy all branch benchmarks to pages
       cache_key_prefix: 'test'
 
   build-rust:

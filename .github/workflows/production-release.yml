@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -101,6 +104,8 @@ jobs:
     needs: [commitlint, tests, linting]
     permissions:
       contents: write
+      pages: write
+      id-token: write
     uses: ./.github/workflows/benchmarks-reusable.yml
     with:
       deploy_to_pages: true  # Deploy production benchmarks to GitHub Pages
