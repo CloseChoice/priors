@@ -140,11 +140,13 @@ jobs:
           path: .asv/results/
           retention-days: 90
 
-      - name: Download existing results from gh-pages
+      - name: Download existing results from gh-pages (branch-scoped)
         if: inputs.deploy_to_pages == true
         continue-on-error: true
         run: |
-          echo "📥 Downloading existing benchmark results from gh-pages..."
+          echo "📥 Downloading existing benchmark results for this branch from gh-pages..."
+
+          SANITIZED=${{ steps.sanitize_branch.outputs.sanitized_branch }}
 
           # Fetch gh-pages branch
           git fetch origin gh-pages || {
@@ -152,23 +154,41 @@ jobs:
             exit 0
           }
 
-          # Check if .asv/results exists on gh-pages
-          if git ls-tree -r origin/gh-pages --name-only | grep -q "^\.asv/results/"; then
-            echo "✅ Found existing results on gh-pages"
+          # Prefer branch-scoped results stored at .asv/html/.asv/results/<branch>/ on gh-pages
+          TARGET_PATH=".asv/html/.asv/results/${SANITIZED}"
 
-            # Create temp directory and extract results
+          if git ls-tree -r origin/gh-pages --name-only | grep -q "^${TARGET_PATH}/"; then
+            echo "✅ Found branch-scoped results at ${TARGET_PATH} on gh-pages"
+
             mkdir -p /tmp/gh-pages-results
-            git archive origin/gh-pages .asv/results | tar -x -C /tmp/gh-pages-results
+            # Extract only the branch-scoped results
+            git archive origin/gh-pages ${TARGET_PATH} | tar -x -C /tmp/gh-pages-results
 
-            # Merge with current results (don't overwrite new results)
-            if [ -d "/tmp/gh-pages-results/.asv/results" ]; then
-              cp -rn /tmp/gh-pages-results/.asv/results/* .asv/results/ 2>/dev/null || true
-              echo "✅ Merged existing results with new results"
+            # If extracted, merge into local .asv/results so ASV can use them for incremental runs
+            if [ -d "/tmp/gh-pages-results/${TARGET_PATH}" ]; then
+              echo "🔁 Merging branch results into local .asv/results/"
+              mkdir -p .asv/results
+              cp -rn /tmp/gh-pages-results/${TARGET_PATH}/* .asv/results/ 2>/dev/null || true
+              echo "✅ Merged branch results for ${SANITIZED}"
             fi
 
             rm -rf /tmp/gh-pages-results
           else
-            echo "ℹ️  No existing results found in gh-pages"
+            echo "ℹ️  No branch-scoped results found for ${SANITIZED} on gh-pages; attempting legacy .asv/results/ merge"
+
+            # Fallback to legacy top-level .asv/results on gh-pages (backwards compatibility)
+            if git ls-tree -r origin/gh-pages --name-only | grep -q "^\.asv/results/"; then
+              echo "⚠️  Found legacy .asv/results on gh-pages — merging ALL results (this may include other branches)"
+              mkdir -p /tmp/gh-pages-results
+              git archive origin/gh-pages .asv/results | tar -x -C /tmp/gh-pages-results
+              if [ -d "/tmp/gh-pages-results/.asv/results" ]; then
+                cp -rn /tmp/gh-pages-results/.asv/results/* .asv/results/ 2>/dev/null || true
+                echo "✅ Merged legacy results"
+              fi
+              rm -rf /tmp/gh-pages-results
+            else
+              echo "ℹ️  No existing results found in gh-pages"
+            fi
           fi
 
       - name: Generate HTML report
@@ -191,14 +211,19 @@ jobs:
       - name: Create .nojekyll file
         run: touch .asv/html/.nojekyll
 
-      - name: Copy results to HTML directory for gh-pages
+      - name: Copy results to HTML directory for gh-pages (branch-scoped)
         if: inputs.deploy_to_pages == true
         run: |
-          echo "📋 Copying benchmark results to HTML directory..."
-          # Create .asv directory in html folder and copy results
-          mkdir -p .asv/html/.asv
-          cp -r .asv/results .asv/html/.asv/
-          echo "✅ Results copied to .asv/html/.asv/results"
+          echo "📋 Copying benchmark results to HTML directory (branch-scoped)..."
+          SANITIZED=${{ steps.sanitize_branch.outputs.sanitized_branch }}
+
+          # Create target dir for this branch inside the html artifact
+          mkdir -p .asv/html/.asv/results/${SANITIZED}
+
+          # Copy current results into branch-specific folder so gh-pages stores per-branch results
+          cp -r .asv/results/* .asv/html/.asv/results/${SANITIZED}/ 2>/dev/null || true
+
+          echo "✅ Results copied to .asv/html/.asv/results/${SANITIZED}"
 
       - name: Add custom branch selector
         if: inputs.deploy_to_pages == true
