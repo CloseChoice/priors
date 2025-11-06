@@ -207,7 +207,15 @@
 
     <script>
         // Configuration
-        const ASV_BASE_PATH = '.'; // Current directory where ASV HTML is located
+        // Auto-detect base path based on current location
+        const currentPath = window.location.pathname;
+        const ASV_BASE_PATH = currentPath.includes('/branches.html')
+            ? currentPath.replace('/branches.html', '')
+            : '.';
+
+        console.log('🌐 Location:', window.location.href);
+        console.log('📁 Detected ASV_BASE_PATH:', ASV_BASE_PATH);
+
         const BRANCHES_CONFIG = [
             'main',
             'improve-speed',
@@ -469,8 +477,13 @@
             loadBranch(currentBranch);
         });
 
-        // Initialize on load
-        init();
+        // Initialize on load - wait for DOM to be ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            // DOM already loaded
+            init();
+        }
     </script>
 </body>
 </html>
