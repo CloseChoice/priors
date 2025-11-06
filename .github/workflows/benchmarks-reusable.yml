@@ -146,15 +146,9 @@ jobs:
           # Backup original config
           cp asv.conf.json asv.conf.json.backup
 
-          # Update config to only use current branch
-          python3 -c "
-import json
-with open('asv.conf.json', 'r') as f:
-    config = json.load(f)
-config['branches'] = ['$CURRENT_BRANCH']
-with open('asv.conf.json', 'w') as f:
-    json.dump(config, f, indent=2)
-"
+          # Update config to only use current branch using jq
+          jq --arg branch "$CURRENT_BRANCH" '.branches = [$branch]' asv.conf.json > asv.conf.json.tmp
+          mv asv.conf.json.tmp asv.conf.json
 
           echo "📝 Temporarily using only current branch for HTML generation"
 
