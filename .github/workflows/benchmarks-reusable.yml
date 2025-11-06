@@ -196,6 +196,54 @@ jobs:
           cp -r .asv/results .asv/html/.asv/
           echo "✅ Results copied to .asv/html/.asv/results"
 
+      - name: Add custom branch selector
+        if: inputs.deploy_to_pages == true
+        run: |
+          echo "📋 Adding custom branch selector interface..."
+
+          # Copy branch selector HTML if it exists
+          if [ -f "asv-branch-selector.html" ]; then
+            cp asv-branch-selector.html .asv/html/branches.html
+            echo "✅ Branch selector added at /branches.html"
+          else
+            echo "⚠️  asv-branch-selector.html not found, skipping"
+          fi
+
+      - name: Generate branch comparison reports
+        if: inputs.deploy_to_pages == true
+        continue-on-error: true
+        run: |
+          echo "📊 Generating branch comparison reports..."
+
+          # Get all branches that have been benchmarked
+          BENCHMARKED_BRANCHES=$(cat asv.conf.json | python3 -c "import sys, json; branches = json.load(sys.stdin).get('branches', []); print(' '.join([b for b in branches if '**' not in b]))" 2>/dev/null || echo "main improve-speed")
+
+          echo "Branches to compare: $BENCHMARKED_BRANCHES"
+
+          # Create comparisons directory
+          mkdir -p .asv/html/comparisons
+
+          # Generate pairwise comparisons
+          BRANCH_ARRAY=($BENCHMARKED_BRANCHES)
+          for i in "${!BRANCH_ARRAY[@]}"; do
+            for j in "${!BRANCH_ARRAY[@]}"; do
+              if [ $i -lt $j ]; then
+                BRANCH1="${BRANCH_ARRAY[$i]}"
+                BRANCH2="${BRANCH_ARRAY[$j]}"
+
+                echo "Comparing $BRANCH1 vs $BRANCH2..."
+
+                # Run ASV compare and save to file
+                asv compare "$BRANCH1" "$BRANCH2" > ".asv/html/comparisons/${BRANCH1//\//_}_vs_${BRANCH2//\//_}.txt" 2>&1 || {
+                  echo "⚠️  Comparison failed (branches may not have overlapping commits)"
+                  echo "Comparison unavailable: branches may not have overlapping commits" > ".asv/html/comparisons/${BRANCH1//\//_}_vs_${BRANCH2//\//_}.txt"
+                }
+              fi
+            done
+          done
+
+          echo "✅ Branch comparisons generated in .asv/html/comparisons/"
+
       - name: Upload HTML for deployment
         if: inputs.deploy_to_pages == true
         uses: actions/upload-artifact@v4
