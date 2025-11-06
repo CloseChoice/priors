@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Priors Benchmarks - Branch Selector</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+
+        .controls {
+            background: white;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9rem;
+        }
+
+        select, button {
+            padding: 0.5rem 1rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        select:hover, button:hover {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        select:focus, button:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+            font-weight: 600;
+        }
+
+        button:hover {
+            background: #5568d3;
+            border-color: #5568d3;
+        }
+
+        .info-bar {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 0.75rem 2rem;
+            color: #1565c0;
+            font-size: 0.9rem;
+        }
+
+        .compare-mode {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 1rem 2rem;
+            color: #e65100;
+            display: none;
+        }
+
+        .compare-mode.active {
+            display: block;
+        }
+
+        .compare-results {
+            background: white;
+            margin: 2rem;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .compare-results.active {
+            display: block;
+        }
+
+        .compare-results h2 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        .compare-results pre {
+            background: #f5f5f5;
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        #asv-frame {
+            width: 100%;
+            height: calc(100vh - 180px);
+            border: none;
+            background: white;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Priors Benchmarks</h1>
+        <p>Performance tracking across branches with ASV (Airspeed Velocity)</p>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="branch-selector">Branch:</label>
+            <select id="branch-selector">
+                <option value="">Loading branches...</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="compare-branch">Compare with:</label>
+            <select id="compare-branch">
+                <option value="">-- Select to compare --</option>
+            </select>
+        </div>
+
+        <button id="compare-btn" style="display: none;">Compare Branches</button>
+        <button id="view-btn" style="display: none;">View Dashboard</button>
+    </div>
+
+    <div class="info-bar">
+        <span id="current-branch-info">Select a branch to view benchmarks</span>
+    </div>
+
+    <div class="compare-mode" id="compare-mode-info">
+        <strong>Compare Mode:</strong> Comparing <span id="compare-branches"></span>
+    </div>
+
+    <div class="compare-results" id="compare-results">
+        <h2>Branch Comparison Results</h2>
+        <pre id="compare-output">Loading comparison...</pre>
+    </div>
+
+    <iframe id="asv-frame" src="about:blank"></iframe>
+
+    <script>
+        // Configuration
+        const ASV_BASE_PATH = '.'; // Current directory where ASV HTML is located
+        const BRANCHES_CONFIG = [
+            'main',
+            'improve-speed',
+            'ci/benchmarking',
+            'ci/test-branch-selector',
+            'feat/**'
+        ];
+
+        // State
+        let currentBranch = null;
+        let compareBranch = null;
+
+        // DOM Elements
+        const branchSelector = document.getElementById('branch-selector');
+        const compareBranchSelector = document.getElementById('compare-branch');
+        const compareBtn = document.getElementById('compare-btn');
+        const viewBtn = document.getElementById('view-btn');
+        const asvFrame = document.getElementById('asv-frame');
+        const currentBranchInfo = document.getElementById('current-branch-info');
+        const compareModeInfo = document.getElementById('compare-mode-info');
+        const compareResults = document.getElementById('compare-results');
+        const compareOutput = document.getElementById('compare-output');
+
+        // Initialize
+        async function init() {
+            try {
+                // Fetch available branches from index.json
+                const response = await fetch(`${ASV_BASE_PATH}/index.json`);
+                const data = await response.json();
+
+                let availableBranches = [];
+
+                // Extract branches from params
+                if (data.params && data.params.branch) {
+                    availableBranches = data.params.branch;
+                } else {
+                    // Fallback to config
+                    availableBranches = BRANCHES_CONFIG.filter(b => !b.includes('**'));
+                }
+
+                populateBranchSelectors(availableBranches);
+
+                // Load default branch (first available)
+                if (availableBranches.length > 0) {
+                    loadBranch(availableBranches[0]);
+                }
+            } catch (error) {
+                console.error('Failed to load branches:', error);
+                // Fallback to config branches
+                const fallbackBranches = BRANCHES_CONFIG.filter(b => !b.includes('**'));
+                populateBranchSelectors(fallbackBranches);
+                if (fallbackBranches.length > 0) {
+                    loadBranch(fallbackBranches[0]);
+                }
+            }
+        }
+
+        function populateBranchSelectors(branches) {
+            // Main branch selector
+            branchSelector.innerHTML = branches.map(branch =>
+                `<option value="${branch}">${branch}</option>`
+            ).join('');
+
+            // Compare branch selector
+            compareBranchSelector.innerHTML = '<option value="">-- Select to compare --</option>' +
+                branches.map(branch =>
+                    `<option value="${branch}">${branch}</option>`
+                ).join('');
+        }
+
+        function loadBranch(branch) {
+            currentBranch = branch;
+
+            // Show loading
+            asvFrame.src = 'about:blank';
+            asvFrame.innerHTML = '<div class="loading"><div class="spinner"></div>Loading benchmarks...</div>';
+
+            // Load ASV dashboard
+            // ASV generates index.html with all branches combined
+            asvFrame.src = `${ASV_BASE_PATH}/index.html#${encodeURIComponent(branch)}`;
+
+            // Update UI
+            branchSelector.value = branch;
+            currentBranchInfo.textContent = `Viewing benchmarks for branch: ${branch}`;
+
+            // Hide compare mode
+            compareResults.classList.remove('active');
+            compareModeInfo.classList.remove('active');
+            compareBtn.style.display = 'none';
+            viewBtn.style.display = 'none';
+        }
+
+        async function compareBranches(branch1, branch2) {
+            compareResults.classList.add('active');
+            compareModeInfo.classList.add('active');
+            document.getElementById('compare-branches').textContent = `${branch1} vs ${branch2}`;
+            asvFrame.style.display = 'none';
+
+            compareOutput.textContent = 'Loading comparison data...';
+
+            try {
+                // Try to load pre-generated comparison report from ASV compare
+                const branch1Slug = branch1.replace(/\//g, '_');
+                const branch2Slug = branch2.replace(/\//g, '_');
+                const comparisonUrl = `${ASV_BASE_PATH}/comparisons/${branch1Slug}_vs_${branch2Slug}.txt`;
+
+                let report = '';
+
+                try {
+                    const compResponse = await fetch(comparisonUrl);
+                    if (compResponse.ok) {
+                        report = await compResponse.text();
+
+                        // Add header if ASV comparison was successful
+                        if (!report.includes('unavailable') && !report.includes('failed')) {
+                            report = `Branch Comparison: ${branch1} vs ${branch2}\n` +
+                                    `Generated by ASV Compare\n` +
+                                    '='.repeat(70) + '\n\n' + report;
+                        }
+                        compareOutput.textContent = report;
+                        return;
+                    } else {
+                        throw new Error('Comparison file not found');
+                    }
+                } catch (fetchError) {
+                    // Fallback to generating basic comparison
+                }
+
+                // Fallback: Fetch index.json to get benchmark data
+                const response = await fetch(`${ASV_BASE_PATH}/index.json`);
+                const data = await response.json();
+
+                // Build comparison report
+                let report = `Branch Comparison: ${branch1} vs ${branch2}\n`;
+                report += '='.repeat(60) + '\n\n';
+
+                // Get benchmarks for both branches
+                const branch1Data = await fetchBranchData(branch1, data);
+                const branch2Data = await fetchBranchData(branch2, data);
+
+                if (!branch1Data || !branch2Data) {
+                    report += '⚠️  Could not load data for one or both branches.\n';
+                    report += '   This may happen if benchmarks have not been run yet.\n\n';
+                    report += 'Available branches in data:\n';
+                    if (data.params && data.params.branch) {
+                        data.params.branch.forEach(b => {
+                            report += `  - ${b}\n`;
+                        });
+                    }
+                } else {
+                    report += 'Note: This is a simplified comparison view.\n';
+                    report += 'For detailed benchmark graphs, view each branch individually.\n\n';
+                    report += `Commits in ${branch1}: ${branch1Data.commits || 'N/A'}\n`;
+                    report += `Commits in ${branch2}: ${branch2Data.commits || 'N/A'}\n\n`;
+
+                    if (data.benchmarks) {
+                        report += 'Available Benchmarks:\n';
+                        Object.keys(data.benchmarks).forEach(benchmark => {
+                            report += `  - ${benchmark}\n`;
+                        });
+                    }
+                }
+
+                compareOutput.textContent = report;
+            } catch (error) {
+                compareOutput.textContent = `Error loading comparison:\n${error.message}\n\n` +
+                    'This feature requires benchmark data to be available.\n' +
+                    'Make sure both branches have been benchmarked.';
+            }
+        }
+
+        async function fetchBranchData(branch, indexData) {
+            // Try to get data for specific branch from index
+            // This is simplified - real implementation would parse result files
+            if (!indexData.params || !indexData.params.branch) {
+                return null;
+            }
+
+            if (!indexData.params.branch.includes(branch)) {
+                return null;
+            }
+
+            return {
+                commits: Object.keys(indexData.revision_to_hash || {}).length,
+                branch: branch
+            };
+        }
+
+        // Event Listeners
+        branchSelector.addEventListener('change', (e) => {
+            loadBranch(e.target.value);
+            compareBranchSelector.value = '';
+        });
+
+        compareBranchSelector.addEventListener('change', (e) => {
+            compareBranch = e.target.value;
+            if (compareBranch) {
+                compareBtn.style.display = 'inline-block';
+                viewBtn.style.display = 'inline-block';
+            } else {
+                compareBtn.style.display = 'none';
+                viewBtn.style.display = 'none';
+            }
+        });
+
+        compareBtn.addEventListener('click', () => {
+            if (currentBranch && compareBranch) {
+                compareBranches(currentBranch, compareBranch);
+            }
+        });
+
+        viewBtn.addEventListener('click', () => {
+            asvFrame.style.display = 'block';
+            compareResults.classList.remove('active');
+            compareModeInfo.classList.remove('active');
+            loadBranch(currentBranch);
+        });
+
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>
