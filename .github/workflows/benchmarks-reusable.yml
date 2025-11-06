@@ -128,7 +128,9 @@ jobs:
       - name: Store results as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: asv-results-${{ github.ref_name }}-${{ github.sha }}
+          # Use cache_key_prefix instead of branch name to avoid / in artifact name
+          # Branch names like ci/benchmarking contain / which is not allowed
+          name: asv-results-${{ inputs.cache_key_prefix }}-${{ github.sha }}
           path: .asv/results/
           retention-days: 90
 
