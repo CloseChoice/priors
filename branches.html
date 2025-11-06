@@ -294,7 +294,7 @@
             }
 
             log(`Loading dashboard for: ${currentBranch}`);
-            const url = `${ASV_BASE_PATH}/index.html`;
+            const url = `${ASV_BASE_PATH}/index.html?branch=${encodeURIComponent(currentBranch)}`;
             log(`Loading: ${url}`);
 
             asvFrame.src = url;
