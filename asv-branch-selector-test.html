@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Priors Benchmarks - Branch Selector (TEST)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+
+        .test-banner {
+            background: #ff9800;
+            color: white;
+            padding: 0.75rem 2rem;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .controls {
+            background: white;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9rem;
+        }
+
+        select, button {
+            padding: 0.5rem 1rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        select:hover, button:hover {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+            font-weight: 600;
+        }
+
+        .info-bar {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 0.75rem 2rem;
+            color: #1565c0;
+            font-size: 0.9rem;
+        }
+
+        .debug-panel {
+            background: #263238;
+            color: #aed581;
+            padding: 1rem 2rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .debug-panel .error {
+            color: #ff5252;
+        }
+
+        .debug-panel .success {
+            color: #69f0ae;
+        }
+
+        .debug-panel .warn {
+            color: #ffd740;
+        }
+
+        #asv-frame {
+            width: 100%;
+            height: calc(100vh - 450px);
+            border: none;
+            background: white;
+            margin: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="test-banner">
+        🧪 TEST MODE - Loading from GitHub Pages
+    </div>
+
+    <div class="header">
+        <h1>📊 Priors Benchmarks</h1>
+        <p>Performance tracking across branches with ASV (Airspeed Velocity)</p>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="branch-selector">Branch:</label>
+            <select id="branch-selector">
+                <option value="">Loading branches...</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="compare-branch">Compare with:</label>
+            <select id="compare-branch">
+                <option value="">-- Select to compare --</option>
+            </select>
+        </div>
+
+        <button id="load-btn">Load Dashboard</button>
+    </div>
+
+    <div class="info-bar">
+        <span id="current-branch-info">Select a branch to view benchmarks</span>
+    </div>
+
+    <div class="debug-panel" id="debug-panel">
+        <div>🔍 Debug Console</div>
+        <div>Waiting for initialization...</div>
+    </div>
+
+    <iframe id="asv-frame" src="about:blank"></iframe>
+
+    <script>
+        // TEST MODE: Use GitHub Pages URL directly
+        const ASV_BASE_PATH = 'https://closechoice.github.io/priors';
+        const BRANCHES_CONFIG = [
+            'main',
+            'improve-speed',
+            'ci/benchmarking',
+            'ci/test-branch-selector'
+        ];
+
+        // DOM Elements
+        const branchSelector = document.getElementById('branch-selector');
+        const compareBranchSelector = document.getElementById('compare-branch');
+        const loadBtn = document.getElementById('load-btn');
+        const asvFrame = document.getElementById('asv-frame');
+        const currentBranchInfo = document.getElementById('current-branch-info');
+        const debugPanel = document.getElementById('debug-panel');
+
+        // State
+        let currentBranch = null;
+        let availableBranches = [];
+
+        // Debug logging
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warn' ? 'warn' : '';
+            const line = document.createElement('div');
+            line.className = className;
+            line.textContent = `[${timestamp}] ${message}`;
+            debugPanel.appendChild(line);
+            debugPanel.scrollTop = debugPanel.scrollHeight;
+            console.log(`[${type}]`, message);
+        }
+
+        // Initialize
+        async function init() {
+            log('🚀 Initializing branch selector...');
+            log(`Loading from: ${ASV_BASE_PATH}`);
+
+            try {
+                // Always show configured branches
+                let configuredBranches = BRANCHES_CONFIG;
+                availableBranches = [...configuredBranches];
+
+                log(`Configured branches: ${configuredBranches.join(', ')}`);
+
+                try {
+                    // Fetch available branches from index.json
+                    const url = `${ASV_BASE_PATH}/index.json`;
+                    log(`Fetching: ${url}`);
+
+                    const response = await fetch(url);
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    log('✅ index.json loaded successfully', 'success');
+
+                    // Extract branches that have actual data
+                    if (data.params && data.params.branch) {
+                        const dataBranches = data.params.branch;
+                        log(`Branches with data: ${dataBranches.join(', ')}`, 'success');
+
+                        // Merge
+                        dataBranches.forEach(branch => {
+                            if (!availableBranches.includes(branch)) {
+                                availableBranches.push(branch);
+                                log(`Added branch from data: ${branch}`);
+                            }
+                        });
+                    } else {
+                        log('⚠️  No branches found in index.json', 'warn');
+                    }
+                } catch (fetchError) {
+                    log(`⚠️  Could not fetch index.json: ${fetchError.message}`, 'warn');
+                    log('Using configured branches only', 'warn');
+                }
+
+                log(`Final branches: ${availableBranches.join(', ')}`);
+
+                if (availableBranches.length === 0) {
+                    log('❌ No branches available!', 'error');
+                    branchSelector.innerHTML = '<option value="">No branches configured</option>';
+                    return;
+                }
+
+                populateBranchSelectors(availableBranches);
+                log('✅ Branch selectors populated', 'success');
+
+                // Set default branch
+                currentBranch = availableBranches[0];
+                branchSelector.value = currentBranch;
+                currentBranchInfo.textContent = `Selected branch: ${currentBranch} (click "Load Dashboard" to view)`;
+                log(`Default branch selected: ${currentBranch}`);
+
+            } catch (error) {
+                log(`❌ Initialization failed: ${error.message}`, 'error');
+                console.error('Init error:', error);
+            }
+        }
+
+        function populateBranchSelectors(branches) {
+            if (!branches || branches.length === 0) {
+                log('❌ No branches to populate', 'error');
+                return;
+            }
+
+            // Main branch selector
+            branchSelector.innerHTML = branches.map(branch =>
+                `<option value="${branch}">${branch}</option>`
+            ).join('');
+
+            // Compare branch selector
+            compareBranchSelector.innerHTML = '<option value="">-- Select to compare --</option>' +
+                branches.map(branch =>
+                    `<option value="${branch}">${branch}</option>`
+                ).join('');
+
+            log(`Populated ${branches.length} branches in selectors`);
+        }
+
+        function loadDashboard() {
+            if (!currentBranch) {
+                log('❌ No branch selected', 'error');
+                return;
+            }
+
+            log(`Loading dashboard for: ${currentBranch}`);
+            const url = `${ASV_BASE_PATH}/index.html`;
+            log(`Loading: ${url}`);
+
+            asvFrame.src = url;
+            currentBranchInfo.textContent = `Viewing benchmarks for branch: ${currentBranch}`;
+            log('✅ Dashboard loaded in iframe', 'success');
+        }
+
+        // Event Listeners
+        branchSelector.addEventListener('change', (e) => {
+            currentBranch = e.target.value;
+            log(`Branch changed to: ${currentBranch}`);
+            currentBranchInfo.textContent = `Selected branch: ${currentBranch} (click "Load Dashboard" to view)`;
+        });
+
+        loadBtn.addEventListener('click', () => {
+            loadDashboard();
+        });
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', () => {
+            log('DOM loaded, starting initialization...');
+            init();
+        });
+    </script>
+</body>
+</html>
