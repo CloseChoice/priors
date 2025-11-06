@@ -127,7 +127,31 @@ jobs:
       - name: Generate HTML report
         run: |
           echo "📊 Generating HTML report from benchmark results..."
+
+          # Temporarily modify asv.conf.json to only track current branch
+          # This avoids "fatal: bad revision" errors in CI
+          CURRENT_BRANCH="${GITHUB_REF_NAME}"
+          echo "Current branch: $CURRENT_BRANCH"
+
+          # Backup original config
+          cp asv.conf.json asv.conf.json.backup
+
+          # Update config to only use current branch
+          python3 << EOF
+import json
+with open('asv.conf.json', 'r') as f:
+    config = json.load(f)
+config['branches'] = ['$CURRENT_BRANCH']
+with open('asv.conf.json', 'w') as f:
+    json.dump(config, f, indent=2)
+EOF
+
+          # Generate HTML
           asv publish
+
+          # Restore original config
+          mv asv.conf.json.backup asv.conf.json
+
           echo "✅ HTML report generated in .asv/html/"
 
       - name: Generate benchmark summary
