@@ -191,8 +191,9 @@ jobs:
         if: inputs.deploy_to_pages == true
         run: |
           echo "📋 Copying benchmark results to HTML directory..."
-          # Copy results so they persist on gh-pages
-          cp -r .asv/results .asv/html/.asv/results
+          # Create .asv directory in html folder and copy results
+          mkdir -p .asv/html/.asv
+          cp -r .asv/results .asv/html/.asv/
           echo "✅ Results copied to .asv/html/.asv/results"
 
       - name: Upload HTML for deployment
