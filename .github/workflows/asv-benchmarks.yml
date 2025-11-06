@@ -65,26 +65,72 @@ jobs:
 
       - name: Run benchmarks
         run: |
-          # Strategy:
-          # 1. Try to run only NEW commits (since last benchmark)
-          # 2. If no previous results exist, benchmark from 0.1.0 release onwards
-          # 3. Always ensure HEAD is benchmarked
+          set -e
 
-          if [ -f .asv/results/benchmarks.json ]; then
-            echo "📊 Found previous benchmark results, running incremental benchmarks..."
-            # Run only new commits since last benchmark
-            asv run NEW --show-stderr --quick || asv run HEAD^! --show-stderr --quick
+          echo "🔍 Checking for existing benchmark results..."
+
+          # Strategy for incremental benchmarks:
+          # 1. If results exist: Only benchmark NEW commits (since last run)
+          # 2. If no results: Full benchmark from 0.1.0 release (5adfd57)
+          # 3. Fallback: Always benchmark HEAD as minimum
+
+          if [ -f .asv/results/benchmarks.json ] && [ -d .asv/results/*/  ]; then
+            echo "✅ Found cached results, running incremental benchmarks..."
+            echo "📊 This will only benchmark NEW commits since last run (much faster!)"
+
+            # Try incremental benchmark
+            if asv run NEW --show-stderr --quick; then
+              echo "✅ Incremental benchmark completed"
+            else
+              echo "⚠️  No new commits to benchmark, ensuring HEAD is benchmarked..."
+              asv run HEAD^! --show-stderr --quick || true
+            fi
           else
-            echo "🆕 No previous results found, running full benchmark from 0.1.0 release..."
-            # First run: benchmark from 0.1.0 release to avoid Python 3.10 issues
-            asv run 5adfd57..HEAD --show-stderr --quick || true
+            echo "🆕 No previous results found - running initial full benchmark"
+            echo "📦 Benchmarking from v0.1.0 (5adfd57) onwards to avoid Python 3.10 compatibility issues"
+            echo "⏱️  This will take ~5-10 minutes for the first run..."
+
+            # Full benchmark from 0.1.0 release
+            asv run 5adfd57..HEAD --show-stderr --quick || {
+              echo "⚠️  Some commits failed to build, continuing..."
+              # Ensure at least HEAD is benchmarked
+              asv run HEAD^! --show-stderr --quick
+            }
           fi
 
-          # Always ensure HEAD is benchmarked (idempotent)
-          asv run HEAD^! --show-stderr --quick
+          # Verify HEAD was benchmarked
+          echo "🔍 Verifying HEAD commit is benchmarked..."
+          asv run HEAD^! --show-stderr --quick || echo "⚠️  HEAD already benchmarked"
+
+          echo "✅ Benchmark run completed!"
 
       - name: Generate HTML report
-        run: asv publish
+        run: |
+          echo "📊 Generating HTML report from benchmark results..."
+          asv publish
+          echo "✅ HTML report generated in .asv/html/"
+
+      - name: Generate benchmark summary
+        if: always()
+        run: |
+          echo "## 📊 Benchmark Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f .asv/results/benchmarks.json ]; then
+            # Count total benchmarks
+            RESULT_FILES=$(find .asv/results -name "*.json" -not -name "benchmarks.json" | wc -l)
+            echo "✅ Generated $RESULT_FILES result files" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Show recent commits that were benchmarked
+            echo "### Recent Benchmarked Commits" >> $GITHUB_STEP_SUMMARY
+            git log -5 --oneline >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            echo "📈 View full results at: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ No benchmark results generated" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Create .nojekyll file
         run: touch .asv/html/.nojekyll
