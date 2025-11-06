@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Priors Benchmarks - Branch Selector</title>
+    <title>Priors Benchmarks - Branch Selector (TEST)</title>
     <style>
         * {
             margin: 0;
@@ -31,6 +31,14 @@
         .header p {
             opacity: 0.9;
             font-size: 0.95rem;
+        }
+
+        .test-banner {
+            background: #ff9800;
+            color: white;
+            padding: 0.75rem 2rem;
+            font-weight: bold;
+            text-align: center;
         }
 
         .controls {
@@ -70,22 +78,11 @@
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
-        select:focus, button:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
-        }
-
         button {
             background: #667eea;
             color: white;
             border-color: #667eea;
             font-weight: 600;
-        }
-
-        button:hover {
-            background: #5568d3;
-            border-color: #5568d3;
         }
 
         .info-bar {
@@ -96,76 +93,43 @@
             font-size: 0.9rem;
         }
 
-        .compare-mode {
-            background: #fff3e0;
-            border-left: 4px solid #ff9800;
+        .debug-panel {
+            background: #263238;
+            color: #aed581;
             padding: 1rem 2rem;
-            color: #e65100;
-            display: none;
-        }
-
-        .compare-mode.active {
-            display: block;
-        }
-
-        .compare-results {
-            background: white;
-            margin: 2rem;
-            padding: 1.5rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            display: none;
-        }
-
-        .compare-results.active {
-            display: block;
-        }
-
-        .compare-results h2 {
-            color: #333;
-            margin-bottom: 1rem;
-            font-size: 1.3rem;
-        }
-
-        .compare-results pre {
-            background: #f5f5f5;
-            padding: 1rem;
-            border-radius: 4px;
-            overflow-x: auto;
+            font-family: 'Courier New', monospace;
             font-size: 0.85rem;
-            line-height: 1.5;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .debug-panel .error {
+            color: #ff5252;
+        }
+
+        .debug-panel .success {
+            color: #69f0ae;
+        }
+
+        .debug-panel .warn {
+            color: #ffd740;
         }
 
         #asv-frame {
             width: 100%;
-            height: calc(100vh - 180px);
+            height: calc(100vh - 450px);
             border: none;
             background: white;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 3rem;
-            color: #666;
-        }
-
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 1rem;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            margin: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
     </style>
 </head>
 <body>
+    <div class="test-banner">
+        🧪 TEST MODE - Loading from GitHub Pages
+    </div>
+
     <div class="header">
         <h1>📊 Priors Benchmarks</h1>
         <p>Performance tracking across branches with ASV (Airspeed Velocity)</p>
@@ -186,132 +150,126 @@
             </select>
         </div>
 
-        <button id="compare-btn" style="display: none;">Compare Branches</button>
-        <button id="view-btn" style="display: none;">View Dashboard</button>
+        <button id="load-btn">Load Dashboard</button>
     </div>
 
     <div class="info-bar">
         <span id="current-branch-info">Select a branch to view benchmarks</span>
     </div>
 
-    <div class="compare-mode" id="compare-mode-info">
-        <strong>Compare Mode:</strong> Comparing <span id="compare-branches"></span>
-    </div>
-
-    <div class="compare-results" id="compare-results">
-        <h2>Branch Comparison Results</h2>
-        <pre id="compare-output">Loading comparison...</pre>
+    <div class="debug-panel" id="debug-panel">
+        <div>🔍 Debug Console</div>
+        <div>Waiting for initialization...</div>
     </div>
 
     <iframe id="asv-frame" src="about:blank"></iframe>
 
     <script>
-        // Configuration
-        // Auto-detect base path based on current location
-        const currentPath = window.location.pathname;
-        const ASV_BASE_PATH = currentPath.includes('/branches.html')
-            ? currentPath.replace('/branches.html', '')
-            : '.';
-
-        console.log('🌐 Location:', window.location.href);
-        console.log('📁 Detected ASV_BASE_PATH:', ASV_BASE_PATH);
-
+        // TEST MODE: Use GitHub Pages URL directly
+        const ASV_BASE_PATH = 'https://closechoice.github.io/priors';
         const BRANCHES_CONFIG = [
             'main',
             'improve-speed',
             'ci/benchmarking',
-            'ci/test-branch-selector',
-            'feat/**'
+            'ci/test-branch-selector'
         ];
-
-        // State
-        let currentBranch = null;
-        let compareBranch = null;
 
         // DOM Elements
         const branchSelector = document.getElementById('branch-selector');
         const compareBranchSelector = document.getElementById('compare-branch');
-        const compareBtn = document.getElementById('compare-btn');
-        const viewBtn = document.getElementById('view-btn');
+        const loadBtn = document.getElementById('load-btn');
         const asvFrame = document.getElementById('asv-frame');
         const currentBranchInfo = document.getElementById('current-branch-info');
-        const compareModeInfo = document.getElementById('compare-mode-info');
-        const compareResults = document.getElementById('compare-results');
-        const compareOutput = document.getElementById('compare-output');
+        const debugPanel = document.getElementById('debug-panel');
+
+        // State
+        let currentBranch = null;
+        let availableBranches = [];
+
+        // Debug logging
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warn' ? 'warn' : '';
+            const line = document.createElement('div');
+            line.className = className;
+            line.textContent = `[${timestamp}] ${message}`;
+            debugPanel.appendChild(line);
+            debugPanel.scrollTop = debugPanel.scrollHeight;
+            console.log(`[${type}]`, message);
+        }
 
         // Initialize
         async function init() {
-            console.log('Initializing branch selector...');
-            console.log('BRANCHES_CONFIG:', BRANCHES_CONFIG);
+            log('🚀 Initializing branch selector...');
+            log(`Loading from: ${ASV_BASE_PATH}`);
 
             try {
-                // Always show all configured branches, even if not all have data yet
-                // This provides better UX - users can see what branches are expected
-                let configuredBranches = BRANCHES_CONFIG.filter(b => !b.includes('**'));
-                let availableBranches = [...configuredBranches]; // Start with all configured
+                // Always show configured branches
+                let configuredBranches = BRANCHES_CONFIG;
+                availableBranches = [...configuredBranches];
 
-                console.log('Configured branches:', configuredBranches);
+                log(`Configured branches: ${configuredBranches.join(', ')}`);
 
                 try {
-                    // Fetch available branches from index.json to merge with config
-                    console.log('Fetching index.json from:', `${ASV_BASE_PATH}/index.json`);
-                    const response = await fetch(`${ASV_BASE_PATH}/index.json`);
+                    // Fetch available branches from index.json
+                    const url = `${ASV_BASE_PATH}/index.json`;
+                    log(`Fetching: ${url}`);
+
+                    const response = await fetch(url);
 
                     if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                     }
 
                     const data = await response.json();
-                    console.log('index.json loaded:', data);
+                    log('✅ index.json loaded successfully', 'success');
 
                     // Extract branches that have actual data
                     if (data.params && data.params.branch) {
-                        console.log('Branches in index.json:', data.params.branch);
-                        // Merge: show configured branches + any others found in data
-                        data.params.branch.forEach(branch => {
+                        const dataBranches = data.params.branch;
+                        log(`Branches with data: ${dataBranches.join(', ')}`, 'success');
+
+                        // Merge
+                        dataBranches.forEach(branch => {
                             if (!availableBranches.includes(branch)) {
                                 availableBranches.push(branch);
+                                log(`Added branch from data: ${branch}`);
                             }
                         });
+                    } else {
+                        log('⚠️  No branches found in index.json', 'warn');
                     }
                 } catch (fetchError) {
-                    console.warn('Could not fetch index.json, using configured branches only:', fetchError);
+                    log(`⚠️  Could not fetch index.json: ${fetchError.message}`, 'warn');
+                    log('Using configured branches only', 'warn');
                 }
 
-                console.log('Final available branches:', availableBranches);
+                log(`Final branches: ${availableBranches.join(', ')}`);
 
                 if (availableBranches.length === 0) {
-                    console.error('No branches available!');
+                    log('❌ No branches available!', 'error');
                     branchSelector.innerHTML = '<option value="">No branches configured</option>';
                     return;
                 }
 
                 populateBranchSelectors(availableBranches);
+                log('✅ Branch selectors populated', 'success');
 
-                // Load default branch (first available)
-                console.log('Loading default branch:', availableBranches[0]);
-                loadBranch(availableBranches[0]);
+                // Set default branch
+                currentBranch = availableBranches[0];
+                branchSelector.value = currentBranch;
+                currentBranchInfo.textContent = `Selected branch: ${currentBranch} (click "Load Dashboard" to view)`;
+                log(`Default branch selected: ${currentBranch}`);
+
             } catch (error) {
-                console.error('Failed to initialize:', error);
-                // Fallback to config branches
-                const fallbackBranches = BRANCHES_CONFIG.filter(b => !b.includes('**'));
-                console.log('Using fallback branches:', fallbackBranches);
-
-                if (fallbackBranches.length > 0) {
-                    populateBranchSelectors(fallbackBranches);
-                    loadBranch(fallbackBranches[0]);
-                } else {
-                    branchSelector.innerHTML = '<option value="">Error: No branches available</option>';
-                }
+                log(`❌ Initialization failed: ${error.message}`, 'error');
+                console.error('Init error:', error);
             }
         }
 
         function populateBranchSelectors(branches) {
-            console.log('Populating selectors with branches:', branches);
-
             if (!branches || branches.length === 0) {
-                branchSelector.innerHTML = '<option value="">No branches available</option>';
-                compareBranchSelector.innerHTML = '<option value="">No branches available</option>';
+                log('❌ No branches to populate', 'error');
                 return;
             }
 
@@ -326,164 +284,40 @@
                     `<option value="${branch}">${branch}</option>`
                 ).join('');
 
-            console.log('Selectors populated successfully');
+            log(`Populated ${branches.length} branches in selectors`);
         }
 
-        function loadBranch(branch) {
-            currentBranch = branch;
-
-            // Show loading
-            asvFrame.src = 'about:blank';
-            asvFrame.innerHTML = '<div class="loading"><div class="spinner"></div>Loading benchmarks...</div>';
-
-            // Load ASV dashboard
-            // ASV generates index.html with all branches combined
-            asvFrame.src = `${ASV_BASE_PATH}/index.html#${encodeURIComponent(branch)}`;
-
-            // Update UI
-            branchSelector.value = branch;
-            currentBranchInfo.textContent = `Viewing benchmarks for branch: ${branch}`;
-
-            // Hide compare mode
-            compareResults.classList.remove('active');
-            compareModeInfo.classList.remove('active');
-            compareBtn.style.display = 'none';
-            viewBtn.style.display = 'none';
-        }
-
-        async function compareBranches(branch1, branch2) {
-            compareResults.classList.add('active');
-            compareModeInfo.classList.add('active');
-            document.getElementById('compare-branches').textContent = `${branch1} vs ${branch2}`;
-            asvFrame.style.display = 'none';
-
-            compareOutput.textContent = 'Loading comparison data...';
-
-            try {
-                // Try to load pre-generated comparison report from ASV compare
-                const branch1Slug = branch1.replace(/\//g, '_');
-                const branch2Slug = branch2.replace(/\//g, '_');
-                const comparisonUrl = `${ASV_BASE_PATH}/comparisons/${branch1Slug}_vs_${branch2Slug}.txt`;
-
-                let report = '';
-
-                try {
-                    const compResponse = await fetch(comparisonUrl);
-                    if (compResponse.ok) {
-                        report = await compResponse.text();
-
-                        // Add header if ASV comparison was successful
-                        if (!report.includes('unavailable') && !report.includes('failed')) {
-                            report = `Branch Comparison: ${branch1} vs ${branch2}\n` +
-                                    `Generated by ASV Compare\n` +
-                                    '='.repeat(70) + '\n\n' + report;
-                        }
-                        compareOutput.textContent = report;
-                        return;
-                    } else {
-                        throw new Error('Comparison file not found');
-                    }
-                } catch (fetchError) {
-                    // Fallback to generating basic comparison
-                }
-
-                // Fallback: Fetch index.json to get benchmark data
-                const response = await fetch(`${ASV_BASE_PATH}/index.json`);
-                const data = await response.json();
-
-                // Build comparison report
-                let report = `Branch Comparison: ${branch1} vs ${branch2}\n`;
-                report += '='.repeat(60) + '\n\n';
-
-                // Get benchmarks for both branches
-                const branch1Data = await fetchBranchData(branch1, data);
-                const branch2Data = await fetchBranchData(branch2, data);
-
-                if (!branch1Data || !branch2Data) {
-                    report += '⚠️  Could not load data for one or both branches.\n';
-                    report += '   This may happen if benchmarks have not been run yet.\n\n';
-                    report += 'Available branches in data:\n';
-                    if (data.params && data.params.branch) {
-                        data.params.branch.forEach(b => {
-                            report += `  - ${b}\n`;
-                        });
-                    }
-                } else {
-                    report += 'Note: This is a simplified comparison view.\n';
-                    report += 'For detailed benchmark graphs, view each branch individually.\n\n';
-                    report += `Commits in ${branch1}: ${branch1Data.commits || 'N/A'}\n`;
-                    report += `Commits in ${branch2}: ${branch2Data.commits || 'N/A'}\n\n`;
-
-                    if (data.benchmarks) {
-                        report += 'Available Benchmarks:\n';
-                        Object.keys(data.benchmarks).forEach(benchmark => {
-                            report += `  - ${benchmark}\n`;
-                        });
-                    }
-                }
-
-                compareOutput.textContent = report;
-            } catch (error) {
-                compareOutput.textContent = `Error loading comparison:\n${error.message}\n\n` +
-                    'This feature requires benchmark data to be available.\n' +
-                    'Make sure both branches have been benchmarked.';
-            }
-        }
-
-        async function fetchBranchData(branch, indexData) {
-            // Try to get data for specific branch from index
-            // This is simplified - real implementation would parse result files
-            if (!indexData.params || !indexData.params.branch) {
-                return null;
+        function loadDashboard() {
+            if (!currentBranch) {
+                log('❌ No branch selected', 'error');
+                return;
             }
 
-            if (!indexData.params.branch.includes(branch)) {
-                return null;
-            }
+            log(`Loading dashboard for: ${currentBranch}`);
+            const url = `${ASV_BASE_PATH}/index.html`;
+            log(`Loading: ${url}`);
 
-            return {
-                commits: Object.keys(indexData.revision_to_hash || {}).length,
-                branch: branch
-            };
+            asvFrame.src = url;
+            currentBranchInfo.textContent = `Viewing benchmarks for branch: ${currentBranch}`;
+            log('✅ Dashboard loaded in iframe', 'success');
         }
 
         // Event Listeners
         branchSelector.addEventListener('change', (e) => {
-            loadBranch(e.target.value);
-            compareBranchSelector.value = '';
+            currentBranch = e.target.value;
+            log(`Branch changed to: ${currentBranch}`);
+            currentBranchInfo.textContent = `Selected branch: ${currentBranch} (click "Load Dashboard" to view)`;
         });
 
-        compareBranchSelector.addEventListener('change', (e) => {
-            compareBranch = e.target.value;
-            if (compareBranch) {
-                compareBtn.style.display = 'inline-block';
-                viewBtn.style.display = 'inline-block';
-            } else {
-                compareBtn.style.display = 'none';
-                viewBtn.style.display = 'none';
-            }
+        loadBtn.addEventListener('click', () => {
+            loadDashboard();
         });
 
-        compareBtn.addEventListener('click', () => {
-            if (currentBranch && compareBranch) {
-                compareBranches(currentBranch, compareBranch);
-            }
-        });
-
-        viewBtn.addEventListener('click', () => {
-            asvFrame.style.display = 'block';
-            compareResults.classList.remove('active');
-            compareModeInfo.classList.remove('active');
-            loadBranch(currentBranch);
-        });
-
-        // Initialize on load - wait for DOM to be ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', init);
-        } else {
-            // DOM already loaded
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', () => {
+            log('DOM loaded, starting initialization...');
             init();
-        }
+        });
     </script>
 </body>
 </html>
