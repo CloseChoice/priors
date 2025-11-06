@@ -23,6 +23,16 @@ jobs:
         with:
           fetch-depth: 0  # Full history for ASV
 
+      - name: Restore ASV results cache
+        uses: actions/cache@v4
+        with:
+          path: .asv/results
+          key: asv-results-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            asv-results-${{ github.ref_name }}-
+            asv-results-main-
+            asv-results-
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -55,9 +65,22 @@ jobs:
 
       - name: Run benchmarks
         run: |
-          # Run benchmarks starting from commit 5adfd57 (0.1.0 release) to avoid old Python 3.10 issues
-          # This ensures we only benchmark commits with compatible Python versions
-          asv run 5adfd57..HEAD --show-stderr --quick || true
+          # Strategy:
+          # 1. Try to run only NEW commits (since last benchmark)
+          # 2. If no previous results exist, benchmark from 0.1.0 release onwards
+          # 3. Always ensure HEAD is benchmarked
+
+          if [ -f .asv/results/benchmarks.json ]; then
+            echo "📊 Found previous benchmark results, running incremental benchmarks..."
+            # Run only new commits since last benchmark
+            asv run NEW --show-stderr --quick || asv run HEAD^! --show-stderr --quick
+          else
+            echo "🆕 No previous results found, running full benchmark from 0.1.0 release..."
+            # First run: benchmark from 0.1.0 release to avoid Python 3.10 issues
+            asv run 5adfd57..HEAD --show-stderr --quick || true
+          fi
+
+          # Always ensure HEAD is benchmarked (idempotent)
           asv run HEAD^! --show-stderr --quick
 
       - name: Generate HTML report
