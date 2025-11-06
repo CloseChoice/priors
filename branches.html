@@ -233,19 +233,32 @@
 
         // Initialize
         async function init() {
+            console.log('Initializing branch selector...');
+            console.log('BRANCHES_CONFIG:', BRANCHES_CONFIG);
+
             try {
                 // Always show all configured branches, even if not all have data yet
                 // This provides better UX - users can see what branches are expected
                 let configuredBranches = BRANCHES_CONFIG.filter(b => !b.includes('**'));
                 let availableBranches = [...configuredBranches]; // Start with all configured
 
+                console.log('Configured branches:', configuredBranches);
+
                 try {
                     // Fetch available branches from index.json to merge with config
+                    console.log('Fetching index.json from:', `${ASV_BASE_PATH}/index.json`);
                     const response = await fetch(`${ASV_BASE_PATH}/index.json`);
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
                     const data = await response.json();
+                    console.log('index.json loaded:', data);
 
                     // Extract branches that have actual data
                     if (data.params && data.params.branch) {
+                        console.log('Branches in index.json:', data.params.branch);
                         // Merge: show configured branches + any others found in data
                         data.params.branch.forEach(branch => {
                             if (!availableBranches.includes(branch)) {
@@ -254,27 +267,46 @@
                         });
                     }
                 } catch (fetchError) {
-                    console.warn('Could not fetch index.json, using configured branches only');
+                    console.warn('Could not fetch index.json, using configured branches only:', fetchError);
+                }
+
+                console.log('Final available branches:', availableBranches);
+
+                if (availableBranches.length === 0) {
+                    console.error('No branches available!');
+                    branchSelector.innerHTML = '<option value="">No branches configured</option>';
+                    return;
                 }
 
                 populateBranchSelectors(availableBranches);
 
                 // Load default branch (first available)
-                if (availableBranches.length > 0) {
-                    loadBranch(availableBranches[0]);
-                }
+                console.log('Loading default branch:', availableBranches[0]);
+                loadBranch(availableBranches[0]);
             } catch (error) {
                 console.error('Failed to initialize:', error);
                 // Fallback to config branches
                 const fallbackBranches = BRANCHES_CONFIG.filter(b => !b.includes('**'));
-                populateBranchSelectors(fallbackBranches);
+                console.log('Using fallback branches:', fallbackBranches);
+
                 if (fallbackBranches.length > 0) {
+                    populateBranchSelectors(fallbackBranches);
                     loadBranch(fallbackBranches[0]);
+                } else {
+                    branchSelector.innerHTML = '<option value="">Error: No branches available</option>';
                 }
             }
         }
 
         function populateBranchSelectors(branches) {
+            console.log('Populating selectors with branches:', branches);
+
+            if (!branches || branches.length === 0) {
+                branchSelector.innerHTML = '<option value="">No branches available</option>';
+                compareBranchSelector.innerHTML = '<option value="">No branches available</option>';
+                return;
+            }
+
             // Main branch selector
             branchSelector.innerHTML = branches.map(branch =>
                 `<option value="${branch}">${branch}</option>`
@@ -285,6 +317,8 @@
                 branches.map(branch =>
                     `<option value="${branch}">${branch}</option>`
                 ).join('');
+
+            console.log('Selectors populated successfully');
         }
 
         function loadBranch(branch) {
