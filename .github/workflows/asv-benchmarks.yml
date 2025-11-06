@@ -48,12 +48,17 @@ jobs:
 
       - name: Configure ASV machine
         run: |
-          # Get the actual machine hostname
-          MACHINE_NAME=$(hostname)
-          echo "Machine name: $MACHINE_NAME"
+          echo "Configuring ASV machine..."
 
-          mkdir -p .asv
-          cat > .asv/asv-machine.json << EOF
+          # Use asv machine command to register the machine non-interactively
+          # This is the proper way to set up the machine in ASV
+          echo -e "\n\n\n\n\n\n" | asv machine --yes || {
+            echo "Warning: asv machine command failed, trying alternative approach..."
+
+            # Fallback: Create machine config manually
+            MACHINE_NAME=$(hostname)
+            mkdir -p .asv
+            cat > .asv/asv-machine.json << EOF
           {
             "$MACHINE_NAME": {
               "arch": "x86_64",
@@ -66,9 +71,10 @@ jobs:
             }
           }
           EOF
+          }
 
-          echo "ASV machine configuration created for $MACHINE_NAME"
-          cat .asv/asv-machine.json
+          echo "✅ ASV machine configuration complete"
+          cat .asv/asv-machine.json 2>/dev/null || echo "Using asv's auto-generated config"
 
       - name: Run benchmarks
         run: |
