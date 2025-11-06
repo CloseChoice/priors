@@ -234,18 +234,27 @@
         // Initialize
         async function init() {
             try {
-                // Fetch available branches from index.json
-                const response = await fetch(`${ASV_BASE_PATH}/index.json`);
-                const data = await response.json();
+                // Always show all configured branches, even if not all have data yet
+                // This provides better UX - users can see what branches are expected
+                let configuredBranches = BRANCHES_CONFIG.filter(b => !b.includes('**'));
+                let availableBranches = [...configuredBranches]; // Start with all configured
 
-                let availableBranches = [];
+                try {
+                    // Fetch available branches from index.json to merge with config
+                    const response = await fetch(`${ASV_BASE_PATH}/index.json`);
+                    const data = await response.json();
 
-                // Extract branches from params
-                if (data.params && data.params.branch) {
-                    availableBranches = data.params.branch;
-                } else {
-                    // Fallback to config
-                    availableBranches = BRANCHES_CONFIG.filter(b => !b.includes('**'));
+                    // Extract branches that have actual data
+                    if (data.params && data.params.branch) {
+                        // Merge: show configured branches + any others found in data
+                        data.params.branch.forEach(branch => {
+                            if (!availableBranches.includes(branch)) {
+                                availableBranches.push(branch);
+                            }
+                        });
+                    }
+                } catch (fetchError) {
+                    console.warn('Could not fetch index.json, using configured branches only');
                 }
 
                 populateBranchSelectors(availableBranches);
@@ -255,7 +264,7 @@
                     loadBranch(availableBranches[0]);
                 }
             } catch (error) {
-                console.error('Failed to load branches:', error);
+                console.error('Failed to initialize:', error);
                 // Fallback to config branches
                 const fallbackBranches = BRANCHES_CONFIG.filter(b => !b.includes('**'));
                 populateBranchSelectors(fallbackBranches);
