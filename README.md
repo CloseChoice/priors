@@ -11,7 +11,10 @@ Blazing-fast implementation of the FP-Growth algorithm for frequent pattern mini
 - **🐍 Python Integration**: Seamless numpy integration via PyO3
 - **🧪 Well-Tested**: Comprehensive unit and integration tests
 - **📊 Benchmarked**: [Live performance benchmarks](https://closechoice.github.io/priors/)
+     
 
+
+      
 ## 🎯 What is FP-Growth?
 
 FP-Growth (Frequent Pattern Growth) is an algorithm for mining frequent itemsets without candidate generation. It's faster than Apriori for dense datasets because it:
