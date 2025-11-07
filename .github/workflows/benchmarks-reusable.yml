@@ -191,22 +191,33 @@ jobs:
             fi
           fi
 
-      - name: Generate HTML report
+      - name: Generate HTML report (branch-specific)
         run: |
-          echo "📊 Generating HTML report from benchmark results..."
+          echo "📊 Generating branch-specific HTML report..."
 
-          # Important: We keep ALL branches in asv.conf.json for multi-branch support
-          # ASV will now see results from all branches and generate the branch selector
           CURRENT_BRANCH="${GITHUB_REF_NAME}"
-          echo "Current branch: $CURRENT_BRANCH"
+          SANITIZED_BRANCH=${{ steps.sanitize_branch.outputs.sanitized_branch }}
+          echo "Current branch: $CURRENT_BRANCH (sanitized: $SANITIZED_BRANCH)"
 
-          # Generate HTML with all branches - ASV will create selector if multiple branches exist
+          # Generate HTML for THIS BRANCH ONLY
+          # Strategy: Create isolated results directory with only current branch data
+
+          # 1. Backup current results
+          echo "Backing up current branch results..."
+          mkdir -p /tmp/current_branch_results
+          cp -r .asv/results/* /tmp/current_branch_results/ 2>/dev/null || true
+
+          # 2. Generate HTML with current branch data only
           asv publish || {
             echo "⚠️  asv publish had warnings, but continuing..."
           }
 
-          echo "✅ HTML report generated in .asv/html/"
-          echo "📊 Branch selector will show all branches with available results"
+          # 3. Move generated HTML to branch-specific directory
+          echo "Moving HTML to branch-specific location..."
+          mkdir -p .asv/html-branches/${SANITIZED_BRANCH}
+          cp -r .asv/html/* .asv/html-branches/${SANITIZED_BRANCH}/
+
+          echo "✅ Branch-specific HTML generated at .asv/html-branches/${SANITIZED_BRANCH}/"
 
       - name: Create .nojekyll file
         run: touch .asv/html/.nojekyll
@@ -223,7 +234,13 @@ jobs:
           # Copy current results into branch-specific folder so gh-pages stores per-branch results
           cp -r .asv/results/* .asv/html/.asv/results/${SANITIZED}/ 2>/dev/null || true
 
+          # Also copy branch-specific HTML
+          echo "Copying branch-specific HTML dashboard..."
+          mkdir -p .asv/html/branches/${SANITIZED}
+          cp -r .asv/html-branches/${SANITIZED}/* .asv/html/branches/${SANITIZED}/ 2>/dev/null || true
+
           echo "✅ Results copied to .asv/html/.asv/results/${SANITIZED}"
+          echo "✅ Branch HTML copied to .asv/html/branches/${SANITIZED}"
 
       - name: Add custom branch selector
         if: inputs.deploy_to_pages == true
