@@ -342,7 +342,7 @@
             log(`Populated ${branches.length} branches in selectors`);
         }
 
-        function loadDashboard() {
+        async function loadDashboard() {
             if (!currentBranch) {
                 log('❌ No branch selected', 'error');
                 return;
@@ -350,14 +350,34 @@
 
             log(`Loading dashboard for: ${currentBranch}`);
 
-            // Load from branch-specific HTML directory
+            // Try to load branch-specific HTML directory first
             const sanitized = sanitizeBranch(currentBranch);
-            const url = `${ASV_BASE_PATH}/branches/${sanitized}/index.html`;
-            log(`Loading branch-specific dashboard: ${url}`);
+            const branchSpecificUrl = `${ASV_BASE_PATH}/branches/${sanitized}/index.html`;
+            const standardUrl = `${ASV_BASE_PATH}/index.html`;
 
-            asvFrame.src = url;
-            currentBranchInfo.textContent = `Viewing benchmarks for branch: ${currentBranch}`;
-            log('✅ Branch-specific dashboard loaded in iframe', 'success');
+            log(`Trying branch-specific dashboard: ${branchSpecificUrl}`);
+
+            try {
+                // Check if branch-specific dashboard exists
+                const response = await fetch(branchSpecificUrl, { method: 'HEAD' });
+
+                if (response.ok) {
+                    log('✅ Branch-specific dashboard found', 'success');
+                    asvFrame.src = branchSpecificUrl;
+                    currentBranchInfo.textContent = `Viewing benchmarks for branch: ${currentBranch}`;
+                    log('✅ Branch-specific dashboard loaded in iframe', 'success');
+                } else {
+                    throw new Error('Branch-specific dashboard not found');
+                }
+            } catch (error) {
+                log(`⚠️  Branch-specific dashboard not found: ${error.message}`, 'warn');
+                log(`Falling back to standard dashboard...`);
+
+                // Fallback to standard dashboard
+                asvFrame.src = standardUrl;
+                currentBranchInfo.textContent = `Viewing benchmarks (all branches) - Branch-specific view not yet available`;
+                log('✅ Standard dashboard loaded (shows all branches)', 'success');
+            }
         }
 
         // Event Listeners

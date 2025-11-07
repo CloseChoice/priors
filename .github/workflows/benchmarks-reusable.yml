@@ -225,7 +225,7 @@ jobs:
       - name: Copy results to HTML directory for gh-pages (branch-scoped)
         if: inputs.deploy_to_pages == true
         run: |
-          echo "📋 Copying benchmark results to HTML directory (branch-scoped)..."
+          echo "📋 Copying benchmark results and HTML to branch-specific directories..."
           SANITIZED=${{ steps.sanitize_branch.outputs.sanitized_branch }}
 
           # Create target dir for this branch inside the html artifact
@@ -234,13 +234,45 @@ jobs:
           # Copy current results into branch-specific folder so gh-pages stores per-branch results
           cp -r .asv/results/* .asv/html/.asv/results/${SANITIZED}/ 2>/dev/null || true
 
-          # Also copy branch-specific HTML
-          echo "Copying branch-specific HTML dashboard..."
+          # Copy branch-specific HTML dashboard (all files including JSON data)
+          echo "Copying complete branch-specific dashboard..."
           mkdir -p .asv/html/branches/${SANITIZED}
+
+          # Copy ALL files from the generated HTML (including JSON data files)
           cp -r .asv/html-branches/${SANITIZED}/* .asv/html/branches/${SANITIZED}/ 2>/dev/null || true
 
+          # Verify critical files exist
+          echo "Verifying branch-specific dashboard files..."
+          if [ -f ".asv/html/branches/${SANITIZED}/index.json" ]; then
+            echo "✅ index.json exists"
+          else
+            echo "⚠️  index.json missing, copying from root..."
+            cp .asv/html/index.json .asv/html/branches/${SANITIZED}/index.json 2>/dev/null || true
+          fi
+
+          if [ -f ".asv/html/branches/${SANITIZED}/info.json" ]; then
+            echo "✅ info.json exists"
+          else
+            echo "⚠️  info.json missing, copying from root..."
+            cp .asv/html/info.json .asv/html/branches/${SANITIZED}/info.json 2>/dev/null || true
+          fi
+
+          if [ -d ".asv/html/branches/${SANITIZED}/graphs" ]; then
+            echo "✅ graphs directory exists"
+          else
+            echo "⚠️  graphs directory missing, copying from root..."
+            cp -r .asv/html/graphs .asv/html/branches/${SANITIZED}/graphs 2>/dev/null || true
+          fi
+
+          if [ -f ".asv/html/branches/${SANITIZED}/regressions.json" ]; then
+            echo "✅ regressions.json exists"
+          else
+            echo "⚠️  regressions.json missing, copying from root..."
+            cp .asv/html/regressions.json .asv/html/branches/${SANITIZED}/regressions.json 2>/dev/null || true
+          fi
+
           echo "✅ Results copied to .asv/html/.asv/results/${SANITIZED}"
-          echo "✅ Branch HTML copied to .asv/html/branches/${SANITIZED}"
+          echo "✅ Complete branch dashboard copied to .asv/html/branches/${SANITIZED}"
 
       - name: Add custom branch selector
         if: inputs.deploy_to_pages == true
