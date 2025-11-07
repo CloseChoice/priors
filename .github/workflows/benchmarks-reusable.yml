@@ -191,88 +191,38 @@ jobs:
             fi
           fi
 
-      - name: Generate HTML report (branch-specific)
+      - name: Generate HTML report
         run: |
-          echo "📊 Generating branch-specific HTML report..."
+          echo "📊 Generating HTML report from benchmark results..."
 
           CURRENT_BRANCH="${GITHUB_REF_NAME}"
-          SANITIZED_BRANCH=${{ steps.sanitize_branch.outputs.sanitized_branch }}
-          echo "Current branch: $CURRENT_BRANCH (sanitized: $SANITIZED_BRANCH)"
+          echo "Current branch: $CURRENT_BRANCH"
 
-          # Generate HTML for THIS BRANCH ONLY
-          # Strategy: Create isolated results directory with only current branch data
-
-          # 1. Backup current results
-          echo "Backing up current branch results..."
-          mkdir -p /tmp/current_branch_results
-          cp -r .asv/results/* /tmp/current_branch_results/ 2>/dev/null || true
-
-          # 2. Generate HTML with current branch data only
+          # Generate unified HTML with all branches
+          # ASV automatically handles branch filtering in the UI
           asv publish || {
             echo "⚠️  asv publish had warnings, but continuing..."
           }
 
-          # 3. Move generated HTML to branch-specific directory
-          echo "Moving HTML to branch-specific location..."
-          mkdir -p .asv/html-branches/${SANITIZED_BRANCH}
-          cp -r .asv/html/* .asv/html-branches/${SANITIZED_BRANCH}/
-
-          echo "✅ Branch-specific HTML generated at .asv/html-branches/${SANITIZED_BRANCH}/"
+          echo "✅ HTML report generated in .asv/html/"
+          echo "📊 Dashboard includes data from all branches"
 
       - name: Create .nojekyll file
         run: touch .asv/html/.nojekyll
 
-      - name: Copy results to HTML directory for gh-pages (branch-scoped)
+      - name: Store results for historical tracking
         if: inputs.deploy_to_pages == true
         run: |
-          echo "📋 Copying benchmark results and HTML to branch-specific directories..."
+          echo "📋 Storing benchmark results for historical tracking..."
           SANITIZED=${{ steps.sanitize_branch.outputs.sanitized_branch }}
 
-          # Create target dir for this branch inside the html artifact
+          # Store results in a branch-specific subdirectory for backup/tracking
+          # This allows us to see which branch contributed which commits
           mkdir -p .asv/html/.asv/results/${SANITIZED}
-
-          # Copy current results into branch-specific folder so gh-pages stores per-branch results
           cp -r .asv/results/* .asv/html/.asv/results/${SANITIZED}/ 2>/dev/null || true
 
-          # Copy branch-specific HTML dashboard (all files including JSON data)
-          echo "Copying complete branch-specific dashboard..."
-          mkdir -p .asv/html/branches/${SANITIZED}
-
-          # Copy ALL files from the generated HTML (including JSON data files)
-          cp -r .asv/html-branches/${SANITIZED}/* .asv/html/branches/${SANITIZED}/ 2>/dev/null || true
-
-          # Verify critical files exist
-          echo "Verifying branch-specific dashboard files..."
-          if [ -f ".asv/html/branches/${SANITIZED}/index.json" ]; then
-            echo "✅ index.json exists"
-          else
-            echo "⚠️  index.json missing, copying from root..."
-            cp .asv/html/index.json .asv/html/branches/${SANITIZED}/index.json 2>/dev/null || true
-          fi
-
-          if [ -f ".asv/html/branches/${SANITIZED}/info.json" ]; then
-            echo "✅ info.json exists"
-          else
-            echo "⚠️  info.json missing, copying from root..."
-            cp .asv/html/info.json .asv/html/branches/${SANITIZED}/info.json 2>/dev/null || true
-          fi
-
-          if [ -d ".asv/html/branches/${SANITIZED}/graphs" ]; then
-            echo "✅ graphs directory exists"
-          else
-            echo "⚠️  graphs directory missing, copying from root..."
-            cp -r .asv/html/graphs .asv/html/branches/${SANITIZED}/graphs 2>/dev/null || true
-          fi
-
-          if [ -f ".asv/html/branches/${SANITIZED}/regressions.json" ]; then
-            echo "✅ regressions.json exists"
-          else
-            echo "⚠️  regressions.json missing, copying from root..."
-            cp .asv/html/regressions.json .asv/html/branches/${SANITIZED}/regressions.json 2>/dev/null || true
-          fi
-
-          echo "✅ Results copied to .asv/html/.asv/results/${SANITIZED}"
-          echo "✅ Complete branch dashboard copied to .asv/html/branches/${SANITIZED}"
+          echo "✅ Results archived at .asv/html/.asv/results/${SANITIZED}"
+          echo "📊 Main dashboard at .asv/html/ includes all branches"
 
       - name: Add custom branch selector
         if: inputs.deploy_to_pages == true

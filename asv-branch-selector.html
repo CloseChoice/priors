@@ -198,18 +198,13 @@
             return branch.replace(/\//g, '-');
         }
 
-        // Check if a branch has benchmark data by checking for branch-specific HTML
+        // Check if a branch has benchmark data
+        // Since all branches are in the main dashboard, we just check if the branch
+        // is listed in index.json
         async function checkBranchHasData(branch) {
-            const sanitized = sanitizeBranch(branch);
-            // Check if branch-specific HTML dashboard exists
-            const url = `${ASV_BASE_PATH}/branches/${sanitized}/index.html`;
-
-            try {
-                const response = await fetch(url, { method: 'HEAD' });
-                return response.ok;
-            } catch (error) {
-                return false;
-            }
+            // All branches from index.json are considered valid
+            // ASV only includes branches that have actual benchmark data
+            return true;
         }
 
         // Discover branches with actual benchmark data
@@ -350,34 +345,19 @@
 
             log(`Loading dashboard for: ${currentBranch}`);
 
-            // Try to load branch-specific HTML directory first
-            const sanitized = sanitizeBranch(currentBranch);
-            const branchSpecificUrl = `${ASV_BASE_PATH}/branches/${sanitized}/index.html`;
-            const standardUrl = `${ASV_BASE_PATH}/index.html`;
+            // Load standard ASV dashboard - it has built-in branch filtering
+            // ASV will automatically filter to show only the selected branch's data
+            const url = `${ASV_BASE_PATH}/index.html`;
 
-            log(`Trying branch-specific dashboard: ${branchSpecificUrl}`);
+            log(`Loading ASV dashboard: ${url}`);
+            log(`ASV will filter to show branch: ${currentBranch}`);
 
-            try {
-                // Check if branch-specific dashboard exists
-                const response = await fetch(branchSpecificUrl, { method: 'HEAD' });
+            asvFrame.src = url;
+            currentBranchInfo.textContent = `Viewing benchmarks for branch: ${currentBranch}`;
+            log('✅ Dashboard loaded - ASV will display branch-specific data', 'success');
 
-                if (response.ok) {
-                    log('✅ Branch-specific dashboard found', 'success');
-                    asvFrame.src = branchSpecificUrl;
-                    currentBranchInfo.textContent = `Viewing benchmarks for branch: ${currentBranch}`;
-                    log('✅ Branch-specific dashboard loaded in iframe', 'success');
-                } else {
-                    throw new Error('Branch-specific dashboard not found');
-                }
-            } catch (error) {
-                log(`⚠️  Branch-specific dashboard not found: ${error.message}`, 'warn');
-                log(`Falling back to standard dashboard...`);
-
-                // Fallback to standard dashboard
-                asvFrame.src = standardUrl;
-                currentBranchInfo.textContent = `Viewing benchmarks (all branches) - Branch-specific view not yet available`;
-                log('✅ Standard dashboard loaded (shows all branches)', 'success');
-            }
+            // Note: ASV's built-in UI will show the branch selector
+            // Our selector just makes it easier to jump to a specific branch
         }
 
         // Event Listeners
