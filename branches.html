@@ -167,12 +167,6 @@
     <script>
         // TEST MODE: Use GitHub Pages URL directly
         const ASV_BASE_PATH = 'https://closechoice.github.io/priors';
-        const BRANCHES_CONFIG = [
-            'main',
-            'improve-speed',
-            'ci/benchmarking',
-            'ci/test-branch-selector'
-        ];
 
         // DOM Elements
         const branchSelector = document.getElementById('branch-selector');
@@ -185,6 +179,7 @@
         // State
         let currentBranch = null;
         let availableBranches = [];
+        let branchData = {}; // Store branch-specific data
 
         // Debug logging
         function log(message, type = 'info') {
@@ -198,57 +193,117 @@
             console.log(`[${type}]`, message);
         }
 
+        // Sanitize branch name for URL path (same logic as in workflow)
+        function sanitizeBranch(branch) {
+            return branch.replace(/\//g, '-');
+        }
+
+        // Check if a branch has benchmark data by checking for branch-specific HTML
+        async function checkBranchHasData(branch) {
+            const sanitized = sanitizeBranch(branch);
+            // Check if branch-specific HTML dashboard exists
+            const url = `${ASV_BASE_PATH}/branches/${sanitized}/index.html`;
+
+            try {
+                const response = await fetch(url, { method: 'HEAD' });
+                return response.ok;
+            } catch (error) {
+                return false;
+            }
+        }
+
+        // Discover branches with actual benchmark data
+        async function discoverAvailableBranches() {
+            log('🔍 Discovering branches with benchmark data...');
+
+            // Try to fetch the main index.json to get branch list
+            try {
+                const url = `${ASV_BASE_PATH}/index.json`;
+                log(`Fetching: ${url}`);
+
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                log('✅ index.json loaded successfully', 'success');
+
+                // Extract branches that have actual data
+                if (data.params && data.params.branch) {
+                    const branchesFromData = data.params.branch;
+                    log(`Branches from index.json: ${branchesFromData.join(', ')}`, 'success');
+
+                    // Check each branch to see if it has actual benchmark data
+                    const branchChecks = await Promise.all(
+                        branchesFromData.map(async (branch) => {
+                            const hasData = await checkBranchHasData(branch);
+                            log(`${branch}: ${hasData ? '✅ has data' : '⚠️  no data'}`, hasData ? 'success' : 'warn');
+                            return { branch, hasData };
+                        })
+                    );
+
+                    // Only include branches with data
+                    const validBranches = branchChecks
+                        .filter(check => check.hasData)
+                        .map(check => check.branch);
+
+                    if (validBranches.length > 0) {
+                        return validBranches;
+                    } else {
+                        log('⚠️  No branches with benchmark data found', 'warn');
+                        return [];
+                    }
+                } else {
+                    log('⚠️  No branches found in index.json', 'warn');
+                    return [];
+                }
+            } catch (error) {
+                log(`⚠️  Could not discover branches: ${error.message}`, 'warn');
+                return [];
+            }
+        }
+
+        // Load branch-specific data
+        async function loadBranchData(branch) {
+            const sanitized = sanitizeBranch(branch);
+            const url = `${ASV_BASE_PATH}/.asv/results/${sanitized}/index.json`;
+
+            log(`Loading data for ${branch} from: ${url}`);
+
+            try {
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                branchData[branch] = data;
+                log(`✅ Loaded data for ${branch}`, 'success');
+                return data;
+            } catch (error) {
+                log(`❌ Failed to load data for ${branch}: ${error.message}`, 'error');
+                return null;
+            }
+        }
+
         // Initialize
         async function init() {
             log('🚀 Initializing branch selector...');
             log(`Loading from: ${ASV_BASE_PATH}`);
 
             try {
-                // Always show configured branches
-                let configuredBranches = BRANCHES_CONFIG;
-                availableBranches = [...configuredBranches];
+                // Discover branches with actual data
+                availableBranches = await discoverAvailableBranches();
 
-                log(`Configured branches: ${configuredBranches.join(', ')}`);
-
-                try {
-                    // Fetch available branches from index.json
-                    const url = `${ASV_BASE_PATH}/index.json`;
-                    log(`Fetching: ${url}`);
-
-                    const response = await fetch(url);
-
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
-
-                    const data = await response.json();
-                    log('✅ index.json loaded successfully', 'success');
-
-                    // Extract branches that have actual data
-                    if (data.params && data.params.branch) {
-                        const dataBranches = data.params.branch;
-                        log(`Branches with data: ${dataBranches.join(', ')}`, 'success');
-
-                        // Merge
-                        dataBranches.forEach(branch => {
-                            if (!availableBranches.includes(branch)) {
-                                availableBranches.push(branch);
-                                log(`Added branch from data: ${branch}`);
-                            }
-                        });
-                    } else {
-                        log('⚠️  No branches found in index.json', 'warn');
-                    }
-                } catch (fetchError) {
-                    log(`⚠️  Could not fetch index.json: ${fetchError.message}`, 'warn');
-                    log('Using configured branches only', 'warn');
-                }
-
-                log(`Final branches: ${availableBranches.join(', ')}`);
+                log(`Final branches with data: ${availableBranches.join(', ')}`);
 
                 if (availableBranches.length === 0) {
-                    log('❌ No branches available!', 'error');
-                    branchSelector.innerHTML = '<option value="">No branches configured</option>';
+                    log('❌ No branches with benchmark data available!', 'error');
+                    branchSelector.innerHTML = '<option value="">No branches with data</option>';
+                    currentBranchInfo.textContent = 'No benchmark data found';
                     return;
                 }
 
@@ -294,12 +349,15 @@
             }
 
             log(`Loading dashboard for: ${currentBranch}`);
-            const url = `${ASV_BASE_PATH}/index.html?branch=${encodeURIComponent(currentBranch)}`;
-            log(`Loading: ${url}`);
+
+            // Load from branch-specific HTML directory
+            const sanitized = sanitizeBranch(currentBranch);
+            const url = `${ASV_BASE_PATH}/branches/${sanitized}/index.html`;
+            log(`Loading branch-specific dashboard: ${url}`);
 
             asvFrame.src = url;
             currentBranchInfo.textContent = `Viewing benchmarks for branch: ${currentBranch}`;
-            log('✅ Dashboard loaded in iframe', 'success');
+            log('✅ Branch-specific dashboard loaded in iframe', 'success');
         }
 
         // Event Listeners
@@ -309,9 +367,95 @@
             currentBranchInfo.textContent = `Selected branch: ${currentBranch} (click "Load Dashboard" to view)`;
         });
 
-        loadBtn.addEventListener('click', () => {
-            loadDashboard();
+        compareBranchSelector.addEventListener('change', (e) => {
+            const compareBranch = e.target.value;
+            if (compareBranch && currentBranch) {
+                log(`Compare branch selected: ${compareBranch}`);
+                log(`Will compare ${currentBranch} with ${compareBranch}`);
+                currentBranchInfo.textContent = `Ready to compare ${currentBranch} with ${compareBranch} (click "Load Dashboard")`;
+            } else if (compareBranch === '') {
+                log(`Comparison cleared`);
+                currentBranchInfo.textContent = `Selected branch: ${currentBranch} (click "Load Dashboard" to view)`;
+            }
         });
+
+        loadBtn.addEventListener('click', () => {
+            const compareBranch = compareBranchSelector.value;
+
+            if (compareBranch && compareBranch !== currentBranch) {
+                // Load comparison view
+                log(`Loading comparison: ${currentBranch} vs ${compareBranch}`);
+                loadComparison(currentBranch, compareBranch);
+            } else {
+                // Load single branch dashboard
+                loadDashboard();
+            }
+        });
+
+        // Load comparison between two branches
+        function loadComparison(branch1, branch2) {
+            log(`Comparing ${branch1} with ${branch2}...`);
+
+            const sanitized1 = sanitizeBranch(branch1);
+            const sanitized2 = sanitizeBranch(branch2);
+
+            // Try to load comparison report from ASV
+            const comparisonFile = `${ASV_BASE_PATH}/comparisons/${sanitized1}_vs_${sanitized2}.txt`;
+
+            log(`Checking for comparison file: ${comparisonFile}`);
+
+            fetch(comparisonFile)
+                .then(response => {
+                    if (response.ok) {
+                        return response.text();
+                    } else {
+                        throw new Error('Comparison file not found');
+                    }
+                })
+                .then(comparisonText => {
+                    log('✅ Comparison data loaded', 'success');
+
+                    // Display comparison in iframe as HTML
+                    const html = `
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <style>
+                                body {
+                                    font-family: monospace;
+                                    padding: 20px;
+                                    background: #1e1e1e;
+                                    color: #d4d4d4;
+                                }
+                                pre {
+                                    white-space: pre-wrap;
+                                    word-wrap: break-word;
+                                }
+                                h1 {
+                                    color: #4ec9b0;
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            <h1>Comparison: ${branch1} vs ${branch2}</h1>
+                            <pre>${comparisonText}</pre>
+                        </body>
+                        </html>
+                    `;
+
+                    const blob = new Blob([html], { type: 'text/html' });
+                    asvFrame.src = URL.createObjectURL(blob);
+                    currentBranchInfo.textContent = `Comparing ${branch1} with ${branch2}`;
+                })
+                .catch(error => {
+                    log(`⚠️  No comparison available: ${error.message}`, 'warn');
+                    log(`Loading side-by-side dashboards instead...`);
+
+                    // Fallback: Load first branch dashboard
+                    loadDashboard();
+                    currentBranchInfo.textContent = `Showing ${currentBranch} (comparison not available, view branches separately)`;
+                });
+        }
 
         // Initialize on load
         window.addEventListener('DOMContentLoaded', () => {
