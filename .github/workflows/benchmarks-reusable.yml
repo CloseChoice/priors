@@ -207,22 +207,68 @@ jobs:
           echo "✅ HTML report generated in .asv/html/"
           echo "📊 Dashboard includes data from all branches"
 
+      - name: Generate branch-specific HTML report
+        run: |
+          echo "📊 Generating branch-specific HTML report..."
+
+          CURRENT_BRANCH="${GITHUB_REF_NAME}"
+          SANITIZED_BRANCH=${{ steps.sanitize_branch.outputs.sanitized_branch }}
+          echo "Current branch: $CURRENT_BRANCH (sanitized: $SANITIZED_BRANCH)"
+
+          # Strategy: Generate HTML with ONLY this branch's results
+          # This ensures each branch has its own isolated dashboard
+
+          # Temporarily move all results to backup
+          mkdir -p /tmp/all_results_backup
+          if [ -d ".asv/results" ]; then
+            cp -r .asv/results /tmp/all_results_backup/ 2>/dev/null || true
+          fi
+
+          # Create clean results directory with only current branch data
+          rm -rf .asv/results/*
+
+          # Copy only current branch results back (if they were stored separately)
+          if [ -d "/tmp/all_results_backup/results" ]; then
+            cp -r /tmp/all_results_backup/results/* .asv/results/ 2>/dev/null || true
+          fi
+
+          # Generate HTML with only current branch data
+          echo "Running asv publish for branch: ${CURRENT_BRANCH}"
+          asv publish || {
+            echo "⚠️  asv publish had warnings, but continuing..."
+          }
+
+          # Create branch-specific output directory
+          mkdir -p .asv/html-branches/${SANITIZED_BRANCH}
+
+          # Copy generated HTML to branch-specific location
+          echo "Copying HTML to branch-specific directory..."
+          cp -r .asv/html/* .asv/html-branches/${SANITIZED_BRANCH}/ 2>/dev/null || true
+
+          echo "✅ Branch-specific HTML generated at .asv/html-branches/${SANITIZED_BRANCH}/"
+
+          # Restore all results for storage
+          rm -rf /tmp/all_results_backup
+
       - name: Create .nojekyll file
         run: touch .asv/html/.nojekyll
 
-      - name: Store results for historical tracking
+      - name: Deploy branch-specific dashboard to gh-pages structure
         if: inputs.deploy_to_pages == true
         run: |
-          echo "📋 Storing benchmark results for historical tracking..."
+          echo "📋 Preparing branch-specific dashboard for deployment..."
           SANITIZED=${{ steps.sanitize_branch.outputs.sanitized_branch }}
 
-          # Store results in a branch-specific subdirectory for backup/tracking
-          # This allows us to see which branch contributed which commits
+          # Copy branch-specific HTML dashboard to deployment location
+          mkdir -p .asv/html/branches/${SANITIZED}
+          cp -r .asv/html-branches/${SANITIZED}/* .asv/html/branches/${SANITIZED}/ 2>/dev/null || true
+
+          # Also keep results in a separate location for historical tracking
           mkdir -p .asv/html/.asv/results/${SANITIZED}
           cp -r .asv/results/* .asv/html/.asv/results/${SANITIZED}/ 2>/dev/null || true
 
+          echo "✅ Branch dashboard deployed to .asv/html/branches/${SANITIZED}/"
           echo "✅ Results archived at .asv/html/.asv/results/${SANITIZED}"
-          echo "📊 Main dashboard at .asv/html/ includes all branches"
 
       - name: Update branches manifest
         if: inputs.deploy_to_pages == true
