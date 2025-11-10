@@ -198,20 +198,100 @@
             return branch.replace(/\//g, '-');
         }
 
-        // Check if a branch has benchmark data
-        // Since all branches are in the main dashboard, we just check if the branch
-        // is listed in index.json
+        // Desanitize branch name (reverse the sanitization)
+        function desanitizeBranch(sanitized) {
+            // This is a best-effort reverse - we can't perfectly recover feat/foo from feat-foo
+            // But for display purposes, we'll show the sanitized version
+            return sanitized;
+        }
+
+        // Check if a branch has benchmark data by verifying branch-specific dashboard exists
         async function checkBranchHasData(branch) {
-            // All branches from index.json are considered valid
-            // ASV only includes branches that have actual benchmark data
-            return true;
+            const sanitized = sanitizeBranch(branch);
+            const url = `${ASV_BASE_PATH}/branches/${sanitized}/index.html`;
+
+            try {
+                const response = await fetch(url, { method: 'HEAD' });
+                return response.ok;
+            } catch (error) {
+                return false;
+            }
+        }
+
+        // Discover deployed branches by fetching the branches directory listing
+        async function discoverDeployedBranches() {
+            log('🔍 Discovering deployed branches from GitHub Pages structure...');
+
+            try {
+                // Try to fetch a directory listing from GitHub Pages
+                // We'll use a trick: fetch branches/ and parse the HTML to find subdirectories
+                const branchesUrl = `${ASV_BASE_PATH}/branches/`;
+                log(`Fetching directory listing: ${branchesUrl}`);
+
+                const response = await fetch(branchesUrl);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const html = await response.text();
+
+                // Parse HTML to extract branch directories
+                // GitHub Pages directory listings have links like: <a href="main/">main/</a>
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const links = Array.from(doc.querySelectorAll('a'));
+
+                // Extract directory names (they end with /)
+                const branches = links
+                    .map(link => link.getAttribute('href'))
+                    .filter(href => href && href.endsWith('/') && href !== '../')
+                    .map(href => href.replace(/\/$/, '')) // Remove trailing slash
+                    .filter(branch => branch && branch !== ''); // Filter empty strings
+
+                if (branches.length > 0) {
+                    log(`✅ Found ${branches.length} deployed branches: ${branches.join(', ')}`, 'success');
+                    return branches;
+                } else {
+                    log('⚠️  No branch directories found in branches/', 'warn');
+                    return [];
+                }
+            } catch (error) {
+                log(`⚠️  Could not fetch branches directory: ${error.message}`, 'warn');
+                log('Falling back to index.json discovery...', 'warn');
+                return [];
+            }
         }
 
         // Discover branches with actual benchmark data
         async function discoverAvailableBranches() {
             log('🔍 Discovering branches with benchmark data...');
 
-            // Try to fetch the main index.json to get branch list
+            // Primary strategy: Discover deployed branches from directory structure
+            let branches = await discoverDeployedBranches();
+
+            // If directory discovery succeeded, verify each branch has data
+            if (branches.length > 0) {
+                log('Verifying branch data availability...');
+                const branchChecks = await Promise.all(
+                    branches.map(async (branch) => {
+                        const hasData = await checkBranchHasData(branch);
+                        log(`${branch}: ${hasData ? '✅ has data' : '⚠️  no data'}`, hasData ? 'success' : 'warn');
+                        return { branch, hasData };
+                    })
+                );
+
+                const validBranches = branchChecks
+                    .filter(check => check.hasData)
+                    .map(check => check.branch);
+
+                if (validBranches.length > 0) {
+                    return validBranches;
+                }
+            }
+
+            // Fallback: Try to fetch the main index.json
+            log('Attempting fallback: loading branches from index.json...');
             try {
                 const url = `${ASV_BASE_PATH}/index.json`;
                 log(`Fetching: ${url}`);
@@ -345,19 +425,68 @@
 
             log(`Loading dashboard for: ${currentBranch}`);
 
-            // Load standard ASV dashboard - it has built-in branch filtering
-            // ASV will automatically filter to show only the selected branch's data
-            const url = `${ASV_BASE_PATH}/index.html`;
+            // Load branch-specific dashboard - each branch has its own isolated dashboard
+            const sanitized = sanitizeBranch(currentBranch);
+            const branchUrl = `${ASV_BASE_PATH}/branches/${sanitized}/index.html`;
 
-            log(`Loading ASV dashboard: ${url}`);
-            log(`ASV will filter to show branch: ${currentBranch}`);
+            log(`Loading branch-specific dashboard: ${branchUrl}`);
 
-            asvFrame.src = url;
-            currentBranchInfo.textContent = `Viewing benchmarks for branch: ${currentBranch}`;
-            log('✅ Dashboard loaded - ASV will display branch-specific data', 'success');
+            // Try to load branch-specific dashboard
+            try {
+                const response = await fetch(branchUrl, { method: 'HEAD' });
 
-            // Note: ASV's built-in UI will show the branch selector
-            // Our selector just makes it easier to jump to a specific branch
+                if (response.ok) {
+                    asvFrame.src = branchUrl;
+                    currentBranchInfo.textContent = `Viewing benchmarks for branch: ${currentBranch}`;
+                    log('✅ Branch-specific dashboard loaded', 'success');
+                } else {
+                    throw new Error('Branch-specific dashboard not found');
+                }
+            } catch (error) {
+                log(`⚠️  Branch-specific dashboard not available yet: ${error.message}`, 'warn');
+                log(`This branch needs to run benchmarks first`, 'warn');
+                currentBranchInfo.textContent = `Branch ${currentBranch} has no benchmark data yet`;
+
+                // Show error message in iframe
+                const errorHtml = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <style>
+                            body {
+                                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                height: 100vh;
+                                margin: 0;
+                                background: #f5f5f5;
+                            }
+                            .message {
+                                text-align: center;
+                                padding: 2rem;
+                                background: white;
+                                border-radius: 8px;
+                                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                                max-width: 500px;
+                            }
+                            h1 { color: #ff6b6b; margin-top: 0; }
+                            p { color: #666; line-height: 1.6; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="message">
+                            <h1>⚠️ No Benchmark Data</h1>
+                            <p><strong>Branch:</strong> ${currentBranch}</p>
+                            <p>This branch doesn't have benchmark data yet. Run the benchmark workflow for this branch to generate data.</p>
+                        </div>
+                    </body>
+                    </html>
+                `;
+
+                const blob = new Blob([errorHtml], { type: 'text/html' });
+                asvFrame.src = URL.createObjectURL(blob);
+            }
         }
 
         // Event Listeners
