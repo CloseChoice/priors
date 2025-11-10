@@ -218,37 +218,57 @@ jobs:
           # Strategy: Generate HTML with ONLY this branch's results
           # This ensures each branch has its own isolated dashboard
 
-          # Temporarily move all results to backup
+          # 1. Backup the main dashboard (generated in previous step)
+          echo "Backing up main dashboard..."
+          mkdir -p /tmp/main_dashboard_backup
+          if [ -d ".asv/html" ]; then
+            cp -r .asv/html /tmp/main_dashboard_backup/ 2>/dev/null || true
+          fi
+
+          # 2. Backup all results
           mkdir -p /tmp/all_results_backup
           if [ -d ".asv/results" ]; then
             cp -r .asv/results /tmp/all_results_backup/ 2>/dev/null || true
           fi
 
-          # Create clean results directory with only current branch data
+          # 3. Create clean results directory with only current branch data
           rm -rf .asv/results/*
 
-          # Copy only current branch results back (if they were stored separately)
+          # Copy only current branch results back
           if [ -d "/tmp/all_results_backup/results" ]; then
             cp -r /tmp/all_results_backup/results/* .asv/results/ 2>/dev/null || true
           fi
 
-          # Generate HTML with only current branch data
+          # 4. Generate HTML with only current branch data
           echo "Running asv publish for branch: ${CURRENT_BRANCH}"
           asv publish || {
             echo "⚠️  asv publish had warnings, but continuing..."
           }
 
-          # Create branch-specific output directory
+          # 5. Save branch-specific HTML to separate directory
           mkdir -p .asv/html-branches/${SANITIZED_BRANCH}
-
-          # Copy generated HTML to branch-specific location
-          echo "Copying HTML to branch-specific directory..."
+          echo "Copying branch-specific HTML to .asv/html-branches/${SANITIZED_BRANCH}/"
           cp -r .asv/html/* .asv/html-branches/${SANITIZED_BRANCH}/ 2>/dev/null || true
 
           echo "✅ Branch-specific HTML generated at .asv/html-branches/${SANITIZED_BRANCH}/"
 
-          # Restore all results for storage
-          rm -rf /tmp/all_results_backup
+          # 6. Restore main dashboard (IMPORTANT!)
+          echo "Restoring main dashboard..."
+          rm -rf .asv/html
+          if [ -d "/tmp/main_dashboard_backup/html" ]; then
+            cp -r /tmp/main_dashboard_backup/html .asv/ 2>/dev/null || true
+          fi
+
+          # 7. Restore all results
+          rm -rf .asv/results/*
+          if [ -d "/tmp/all_results_backup/results" ]; then
+            cp -r /tmp/all_results_backup/results/* .asv/results/ 2>/dev/null || true
+          fi
+
+          # 8. Cleanup
+          rm -rf /tmp/main_dashboard_backup /tmp/all_results_backup
+
+          echo "✅ Main dashboard restored"
 
       - name: Create .nojekyll file
         run: touch .asv/html/.nojekyll
