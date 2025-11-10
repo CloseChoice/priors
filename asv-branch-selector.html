@@ -411,19 +411,68 @@
 
             log(`Loading dashboard for: ${currentBranch}`);
 
-            // Load standard ASV dashboard - it has built-in branch filtering
-            // ASV will automatically filter to show only the selected branch's data
-            const url = `${ASV_BASE_PATH}/index.html`;
+            // Load branch-specific dashboard - each branch has its own isolated dashboard
+            const sanitized = sanitizeBranch(currentBranch);
+            const branchUrl = `${ASV_BASE_PATH}/branches/${sanitized}/index.html`;
 
-            log(`Loading ASV dashboard: ${url}`);
-            log(`ASV will filter to show branch: ${currentBranch}`);
+            log(`Loading branch-specific dashboard: ${branchUrl}`);
 
-            asvFrame.src = url;
-            currentBranchInfo.textContent = `Viewing benchmarks for branch: ${currentBranch}`;
-            log('✅ Dashboard loaded - ASV will display branch-specific data', 'success');
+            // Try to load branch-specific dashboard
+            try {
+                const response = await fetch(branchUrl, { method: 'HEAD' });
 
-            // Note: ASV's built-in UI will show the branch selector
-            // Our selector just makes it easier to jump to a specific branch
+                if (response.ok) {
+                    asvFrame.src = branchUrl;
+                    currentBranchInfo.textContent = `Viewing benchmarks for branch: ${currentBranch}`;
+                    log('✅ Branch-specific dashboard loaded', 'success');
+                } else {
+                    throw new Error('Branch-specific dashboard not found');
+                }
+            } catch (error) {
+                log(`⚠️  Branch-specific dashboard not available yet: ${error.message}`, 'warn');
+                log(`This branch needs to run benchmarks first`, 'warn');
+                currentBranchInfo.textContent = `Branch ${currentBranch} has no benchmark data yet`;
+
+                // Show error message in iframe
+                const errorHtml = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <style>
+                            body {
+                                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                height: 100vh;
+                                margin: 0;
+                                background: #f5f5f5;
+                            }
+                            .message {
+                                text-align: center;
+                                padding: 2rem;
+                                background: white;
+                                border-radius: 8px;
+                                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                                max-width: 500px;
+                            }
+                            h1 { color: #ff6b6b; margin-top: 0; }
+                            p { color: #666; line-height: 1.6; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="message">
+                            <h1>⚠️ No Benchmark Data</h1>
+                            <p><strong>Branch:</strong> ${currentBranch}</p>
+                            <p>This branch doesn't have benchmark data yet. Run the benchmark workflow for this branch to generate data.</p>
+                        </div>
+                    </body>
+                    </html>
+                `;
+
+                const blob = new Blob([errorHtml], { type: 'text/html' });
+                asvFrame.src = URL.createObjectURL(blob);
+            }
         }
 
         // Event Listeners
@@ -515,11 +564,87 @@
                 })
                 .catch(error => {
                     log(`⚠️  No comparison available: ${error.message}`, 'warn');
-                    log(`Loading side-by-side dashboards instead...`);
+                    log(`Creating side-by-side view...`);
 
-                    // Fallback: Load first branch dashboard
-                    loadDashboard();
-                    currentBranchInfo.textContent = `Showing ${currentBranch} (comparison not available, view branches separately)`;
+                    // Fallback: Create side-by-side iframe view
+                    const sanitized1 = sanitizeBranch(branch1);
+                    const sanitized2 = sanitizeBranch(branch2);
+                    const url1 = `${ASV_BASE_PATH}/branches/${sanitized1}/index.html`;
+                    const url2 = `${ASV_BASE_PATH}/branches/${sanitized2}/index.html`;
+
+                    const sideBySideHtml = `
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <style>
+                                * { margin: 0; padding: 0; box-sizing: border-box; }
+                                body {
+                                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                                    display: flex;
+                                    flex-direction: column;
+                                    height: 100vh;
+                                    background: #f5f5f5;
+                                }
+                                .header {
+                                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                                    color: white;
+                                    padding: 1rem;
+                                    text-align: center;
+                                    font-weight: bold;
+                                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                                }
+                                .container {
+                                    display: flex;
+                                    flex: 1;
+                                    gap: 10px;
+                                    padding: 10px;
+                                    overflow: hidden;
+                                }
+                                .panel {
+                                    flex: 1;
+                                    display: flex;
+                                    flex-direction: column;
+                                    background: white;
+                                    border-radius: 8px;
+                                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                                    overflow: hidden;
+                                }
+                                .panel-header {
+                                    background: #667eea;
+                                    color: white;
+                                    padding: 0.75rem;
+                                    font-weight: 600;
+                                    text-align: center;
+                                }
+                                iframe {
+                                    flex: 1;
+                                    border: none;
+                                    width: 100%;
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="header">
+                                📊 Side-by-Side Comparison: ${branch1} vs ${branch2}
+                            </div>
+                            <div class="container">
+                                <div class="panel">
+                                    <div class="panel-header">${branch1}</div>
+                                    <iframe src="${url1}"></iframe>
+                                </div>
+                                <div class="panel">
+                                    <div class="panel-header">${branch2}</div>
+                                    <iframe src="${url2}"></iframe>
+                                </div>
+                            </div>
+                        </body>
+                        </html>
+                    `;
+
+                    const blob = new Blob([sideBySideHtml], { type: 'text/html' });
+                    asvFrame.src = URL.createObjectURL(blob);
+                    currentBranchInfo.textContent = `Side-by-side comparison: ${branch1} vs ${branch2}`;
+                    log('✅ Side-by-side view created', 'success');
                 });
         }
 
