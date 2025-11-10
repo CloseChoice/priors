@@ -224,6 +224,70 @@ jobs:
           echo "✅ Results archived at .asv/html/.asv/results/${SANITIZED}"
           echo "📊 Main dashboard at .asv/html/ includes all branches"
 
+      - name: Update branches manifest
+        if: inputs.deploy_to_pages == true
+        run: |
+          echo "📋 Updating branches manifest..."
+          SANITIZED=${{ steps.sanitize_branch.outputs.sanitized_branch }}
+
+          # Download existing manifest from gh-pages (if exists)
+          MANIFEST_FILE=".asv/html/branches-manifest.json"
+          mkdir -p .asv/html
+
+          # Try to get existing manifest from gh-pages
+          if git ls-tree -r origin/gh-pages --name-only | grep -q "^branches-manifest.json"; then
+            echo "Found existing manifest on gh-pages, downloading..."
+            git archive origin/gh-pages branches-manifest.json | tar -x -C .asv/html/ 2>/dev/null || echo "{\"branches\":[]}" > "$MANIFEST_FILE"
+          else
+            echo "No existing manifest found, creating new one"
+            echo '{"branches":[]}' > "$MANIFEST_FILE"
+          fi
+
+          # Parse existing branches and add current branch if not present
+          python3 << 'EOF'
+import json
+import sys
+from datetime import datetime
+
+manifest_file = ".asv/html/branches-manifest.json"
+current_branch = "${{ steps.sanitize_branch.outputs.sanitized_branch }}"
+original_branch = "${{ github.ref_name }}"
+
+try:
+    with open(manifest_file, 'r') as f:
+        manifest = json.load(f)
+except:
+    manifest = {"branches": []}
+
+# Find or add branch entry
+branch_entry = next((b for b in manifest.get("branches", []) if b["sanitized"] == current_branch), None)
+
+if branch_entry:
+    # Update existing entry
+    branch_entry["last_updated"] = datetime.utcnow().isoformat() + "Z"
+    branch_entry["original"] = original_branch
+else:
+    # Add new branch
+    manifest.setdefault("branches", []).append({
+        "sanitized": current_branch,
+        "original": original_branch,
+        "last_updated": datetime.utcnow().isoformat() + "Z",
+        "url": f"branches/{current_branch}/"
+    })
+
+# Sort by last updated (newest first)
+manifest["branches"] = sorted(manifest["branches"], key=lambda x: x["last_updated"], reverse=True)
+
+with open(manifest_file, 'w') as f:
+    json.dump(manifest, f, indent=2)
+
+print(f"✅ Manifest updated with {len(manifest['branches'])} branches")
+for branch in manifest["branches"]:
+    print(f"  - {branch['original']} (sanitized: {branch['sanitized']})")
+EOF
+
+          echo "✅ Branches manifest updated at $MANIFEST_FILE"
+
       - name: Add custom branch selector
         if: inputs.deploy_to_pages == true
         run: |
