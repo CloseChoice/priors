@@ -170,6 +170,8 @@ cargo build --release
 3. **Algorithm variants**: Edit `mining.rs`
 4. **Python API**: Edit `lib.rs`
 
+
+
 ## 📈 Optimization Tips
 
 ### Rust Side
