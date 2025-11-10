@@ -513,11 +513,9 @@
                     log(`⚠️  No comparison available: ${error.message}`, 'warn');
                     log(`Creating side-by-side view...`);
 
-                    // Fallback: Create side-by-side iframe view
-                    const sanitized1 = sanitizeBranch(branch1);
-                    const sanitized2 = sanitizeBranch(branch2);
-                    const url1 = `${ASV_BASE_PATH}/branches/${sanitized1}/index.html`;
-                    const url2 = `${ASV_BASE_PATH}/branches/${sanitized2}/index.html`;
+                    // Fallback: Create side-by-side iframe view using main dashboard with branch filters
+                    const url1 = `${ASV_BASE_PATH}/index.html#${branch1}`;
+                    const url2 = `${ASV_BASE_PATH}/index.html#${branch2}`;
 
                     const sideBySideHtml = `
                         <!DOCTYPE html>
