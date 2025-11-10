@@ -250,6 +250,44 @@ jobs:
           echo "Copying branch-specific HTML to .asv/html-branches/${SANITIZED_BRANCH}/"
           cp -r .asv/html/* .asv/html-branches/${SANITIZED_BRANCH}/ 2>/dev/null || true
 
+          # 5.1. Fix relative paths in branch-specific HTML files
+          # ASV uses relative paths that break in subdirectories (branches/{branch}/)
+          # We need to add ../../ prefix to make them work
+          echo "Fixing relative paths in branch-specific HTML..."
+
+          python3 <<'FIX_PATHS_SCRIPT'
+          import os
+          import re
+          from pathlib import Path
+
+          branch_dir = Path(".asv/html-branches/${{ steps.sanitize_branch.outputs.sanitized_branch }}")
+
+          # Pattern to match relative paths in href/src attributes
+          # Matches: href="path" or src="path" but NOT href="http://" or href="/absolute"
+          pattern = re.compile(r'((?:href|src)=")(?!http:|https:|/|\.\./)([^"]+)(")')
+
+          def fix_path(match):
+              """Add ../../ prefix to relative paths"""
+              prefix = match.group(1)  # href=" or src="
+              path = match.group(2)     # the actual path
+              suffix = match.group(3)   # closing "
+              return f'{prefix}../../{path}{suffix}'
+
+          # Fix all HTML files
+          for html_file in branch_dir.glob("**/*.html"):
+              try:
+                  content = html_file.read_text(encoding='utf-8')
+                  fixed_content = pattern.sub(fix_path, content)
+
+                  if content != fixed_content:
+                      html_file.write_text(fixed_content, encoding='utf-8')
+                      print(f"Fixed paths in: {html_file.relative_to(branch_dir)}")
+              except Exception as e:
+                  print(f"Warning: Could not fix {html_file}: {e}")
+
+          print("✅ Relative paths fixed in branch-specific HTML")
+          FIX_PATHS_SCRIPT
+
           echo "✅ Branch-specific HTML generated at .asv/html-branches/${SANITIZED_BRANCH}/"
 
           # 6. Restore main dashboard (IMPORTANT!)
