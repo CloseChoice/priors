@@ -1,16 +1,16 @@
 {
   "branches": [
     {
+      "sanitized": "ci-benchmarking",
+      "original": "ci/benchmarking",
+      "last_updated": "2025-11-10T15:15:43.283376Z",
+      "url": "branches/ci-benchmarking/"
+    },
+    {
       "sanitized": "ci-test-gh-page",
       "original": "ci/test-gh-page",
       "last_updated": "2025-11-10T14:13:41.832119Z",
       "url": "branches/ci-test-gh-page/"
-    },
-    {
-      "sanitized": "ci-benchmarking",
-      "original": "ci/benchmarking",
-      "last_updated": "2025-11-10T08:34:18.953805Z",
-      "url": "branches/ci-benchmarking/"
     }
   ]
 }
