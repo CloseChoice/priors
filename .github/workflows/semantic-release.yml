@@ -1,4 +1,4 @@
-name: Test Semantic Release
+name: Semantic Release
 
 on:
   push:
