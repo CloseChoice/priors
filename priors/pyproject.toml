@@ -9,6 +9,7 @@ description = "Fast frequent pattern mining library"
 readme = {file = "README.md", content-type = "text/markdown"}
 dependencies = ["numpy",
                 ]
+keywords = ["pattern-mining", "frequent-patterns", "data-mining"]
 
 [project.optional-dependencies]
 dev = ["maturin>=1.0,<2.0",
