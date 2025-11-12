@@ -36,29 +36,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for git describe
+          fetch-depth: 0
 
-      - name: Generate dev version
-        id: version
+      - name: Set version from git tags
         run: |
-          # Get version from git describe: v0.1.0-43-gdf36faf -> 0.1.0.dev43
-          GIT_DESCRIBE=$(git describe --tags --long 2>/dev/null || echo "v0.1.0-0-g$(git rev-parse --short HEAD)")
-          echo "Git describe: $GIT_DESCRIBE"
-
-          if [[ $GIT_DESCRIBE =~ ^v?([0-9.]+)-([0-9]+)-g([a-f0-9]+)$ ]]; then
-            BASE_VERSION="${BASH_REMATCH[1]}"
-            COMMITS_AHEAD="${BASH_REMATCH[2]}"
-            if [ "$COMMITS_AHEAD" = "0" ]; then
-              VERSION="$BASE_VERSION"
-            else
-              VERSION="${BASE_VERSION}.dev${COMMITS_AHEAD}"
-            fi
-          else
-            VERSION="0.1.0.dev${{ github.run_number }}"
-          fi
-
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Building version: $VERSION"
+          cd priors
+          LATEST_TAG=$(git describe --tags --abbrev=0)
+          VERSION="${LATEST_TAG#v}.dev${{ github.run_number }}"
+          sed -i 's/^dynamic = \["version"\]/version = "'"$VERSION"'"/' pyproject.toml
 
       - name: Build wheels
         uses: PyO3/maturin-action@v1
@@ -68,8 +53,6 @@ jobs:
           sccache: "true"
           manylinux: auto
           working-directory: priors
-        env:
-          MATURIN_PEP440_VERSION: ${{ steps.version.outputs.version }}
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -85,30 +68,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for git describe
+          fetch-depth: 0
 
-      - name: Generate dev version
-        id: version
+      - name: Set version from git tags
         shell: bash
         run: |
-          # Get version from git describe: v0.1.0-43-gdf36faf -> 0.1.0.dev43
-          GIT_DESCRIBE=$(git describe --tags --long 2>/dev/null || echo "v0.1.0-0-g$(git rev-parse --short HEAD)")
-          echo "Git describe: $GIT_DESCRIBE"
-
-          if [[ $GIT_DESCRIBE =~ ^v?([0-9.]+)-([0-9]+)-g([a-f0-9]+)$ ]]; then
-            BASE_VERSION="${BASH_REMATCH[1]}"
-            COMMITS_AHEAD="${BASH_REMATCH[2]}"
-            if [ "$COMMITS_AHEAD" = "0" ]; then
-              VERSION="$BASE_VERSION"
-            else
-              VERSION="${BASE_VERSION}.dev${COMMITS_AHEAD}"
-            fi
-          else
-            VERSION="0.1.0.dev${{ github.run_number }}"
-          fi
-
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Building version: $VERSION"
+          cd priors
+          LATEST_TAG=$(git describe --tags --abbrev=0)
+          VERSION="${LATEST_TAG#v}.dev${{ github.run_number }}"
+          sed -i 's/^dynamic = \["version"\]/version = "'"$VERSION"'"/' pyproject.toml
 
       - name: Build wheels
         uses: PyO3/maturin-action@v1
@@ -117,8 +85,6 @@ jobs:
           args: --release --out dist --find-interpreter
           sccache: "true"
           working-directory: priors
-        env:
-          MATURIN_PEP440_VERSION: ${{ steps.version.outputs.version }}
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -134,29 +100,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for git describe
+          fetch-depth: 0
 
-      - name: Generate dev version
-        id: version
+      - name: Set version from git tags
         run: |
-          # Get version from git describe: v0.1.0-43-gdf36faf -> 0.1.0.dev43
-          GIT_DESCRIBE=$(git describe --tags --long 2>/dev/null || echo "v0.1.0-0-g$(git rev-parse --short HEAD)")
-          echo "Git describe: $GIT_DESCRIBE"
-
-          if [[ $GIT_DESCRIBE =~ ^v?([0-9.]+)-([0-9]+)-g([a-f0-9]+)$ ]]; then
-            BASE_VERSION="${BASH_REMATCH[1]}"
-            COMMITS_AHEAD="${BASH_REMATCH[2]}"
-            if [ "$COMMITS_AHEAD" = "0" ]; then
-              VERSION="$BASE_VERSION"
-            else
-              VERSION="${BASE_VERSION}.dev${COMMITS_AHEAD}"
-            fi
-          else
-            VERSION="0.1.0.dev${{ github.run_number }}"
-          fi
-
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Building version: $VERSION"
+          cd priors
+          LATEST_TAG=$(git describe --tags --abbrev=0)
+          VERSION="${LATEST_TAG#v}.dev${{ github.run_number }}"
+          sed -i '' 's/^dynamic = \["version"\]/version = "'"$VERSION"'"/' pyproject.toml
 
       - name: Build wheels
         uses: PyO3/maturin-action@v1
@@ -165,8 +116,6 @@ jobs:
           args: --release --out dist --find-interpreter
           sccache: "true"
           working-directory: priors
-        env:
-          MATURIN_PEP440_VERSION: ${{ steps.version.outputs.version }}
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -179,29 +128,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for git describe
+          fetch-depth: 0
 
-      - name: Generate dev version
-        id: version
+      - name: Set version from git tags
         run: |
-          # Get version from git describe: v0.1.0-43-gdf36faf -> 0.1.0.dev43
-          GIT_DESCRIBE=$(git describe --tags --long 2>/dev/null || echo "v0.1.0-0-g$(git rev-parse --short HEAD)")
-          echo "Git describe: $GIT_DESCRIBE"
-
-          if [[ $GIT_DESCRIBE =~ ^v?([0-9.]+)-([0-9]+)-g([a-f0-9]+)$ ]]; then
-            BASE_VERSION="${BASH_REMATCH[1]}"
-            COMMITS_AHEAD="${BASH_REMATCH[2]}"
-            if [ "$COMMITS_AHEAD" = "0" ]; then
-              VERSION="$BASE_VERSION"
-            else
-              VERSION="${BASE_VERSION}.dev${COMMITS_AHEAD}"
-            fi
-          else
-            VERSION="0.1.0.dev${{ github.run_number }}"
-          fi
-
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Building version: $VERSION"
+          cd priors
+          LATEST_TAG=$(git describe --tags --abbrev=0)
+          VERSION="${LATEST_TAG#v}.dev${{ github.run_number }}"
+          sed -i 's/^dynamic = \["version"\]/version = "'"$VERSION"'"/' pyproject.toml
 
       - name: Build sdist
         uses: PyO3/maturin-action@v1
@@ -209,8 +143,6 @@ jobs:
           command: sdist
           args: --out dist
           working-directory: priors
-        env:
-          MATURIN_PEP440_VERSION: ${{ steps.version.outputs.version }}
 
       - name: Upload sdist
         uses: actions/upload-artifact@v4
@@ -232,8 +164,7 @@ jobs:
 
       - name: Display version info
         run: |
-          echo "Publishing to TestPyPI (version auto-generated from git)"
-          echo "Built packages:"
+          echo "Publishing version 0.1.0.dev${{ github.run_number }}"
           ls -lh dist/
 
       - name: Publish to TestPyPI
