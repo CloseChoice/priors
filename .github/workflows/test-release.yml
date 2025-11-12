@@ -35,13 +35,30 @@ jobs:
         target: [x86_64, aarch64]
     steps:
       - uses: actions/checkout@v4
-
-      - name: Download version files
-        uses: actions/download-artifact@v4
-        continue-on-error: true
         with:
-          name: version-files
-          path: priors
+          fetch-depth: 0  # Full history for git describe
+
+      - name: Generate dev version
+        id: version
+        run: |
+          # Get version from git describe: v0.1.0-43-gdf36faf -> 0.1.0.dev43
+          GIT_DESCRIBE=$(git describe --tags --long 2>/dev/null || echo "v0.1.0-0-g$(git rev-parse --short HEAD)")
+          echo "Git describe: $GIT_DESCRIBE"
+
+          if [[ $GIT_DESCRIBE =~ ^v?([0-9.]+)-([0-9]+)-g([a-f0-9]+)$ ]]; then
+            BASE_VERSION="${BASH_REMATCH[1]}"
+            COMMITS_AHEAD="${BASH_REMATCH[2]}"
+            if [ "$COMMITS_AHEAD" = "0" ]; then
+              VERSION="$BASE_VERSION"
+            else
+              VERSION="${BASE_VERSION}.dev${COMMITS_AHEAD}"
+            fi
+          else
+            VERSION="0.1.0.dev${{ github.run_number }}"
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
 
       - name: Build wheels
         uses: PyO3/maturin-action@v1
@@ -51,6 +68,8 @@ jobs:
           sccache: "true"
           manylinux: auto
           working-directory: priors
+        env:
+          MATURIN_PEP440_VERSION: ${{ steps.version.outputs.version }}
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -65,13 +84,31 @@ jobs:
         target: [x64]
     steps:
       - uses: actions/checkout@v4
-
-      - name: Download version files
-        uses: actions/download-artifact@v4
-        continue-on-error: true
         with:
-          name: version-files
-          path: priors
+          fetch-depth: 0  # Full history for git describe
+
+      - name: Generate dev version
+        id: version
+        shell: bash
+        run: |
+          # Get version from git describe: v0.1.0-43-gdf36faf -> 0.1.0.dev43
+          GIT_DESCRIBE=$(git describe --tags --long 2>/dev/null || echo "v0.1.0-0-g$(git rev-parse --short HEAD)")
+          echo "Git describe: $GIT_DESCRIBE"
+
+          if [[ $GIT_DESCRIBE =~ ^v?([0-9.]+)-([0-9]+)-g([a-f0-9]+)$ ]]; then
+            BASE_VERSION="${BASH_REMATCH[1]}"
+            COMMITS_AHEAD="${BASH_REMATCH[2]}"
+            if [ "$COMMITS_AHEAD" = "0" ]; then
+              VERSION="$BASE_VERSION"
+            else
+              VERSION="${BASE_VERSION}.dev${COMMITS_AHEAD}"
+            fi
+          else
+            VERSION="0.1.0.dev${{ github.run_number }}"
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
 
       - name: Build wheels
         uses: PyO3/maturin-action@v1
@@ -80,6 +117,8 @@ jobs:
           args: --release --out dist --find-interpreter
           sccache: "true"
           working-directory: priors
+        env:
+          MATURIN_PEP440_VERSION: ${{ steps.version.outputs.version }}
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -94,13 +133,30 @@ jobs:
         target: [x86_64, aarch64]
     steps:
       - uses: actions/checkout@v4
-
-      - name: Download version files
-        uses: actions/download-artifact@v4
-        continue-on-error: true
         with:
-          name: version-files
-          path: priors
+          fetch-depth: 0  # Full history for git describe
+
+      - name: Generate dev version
+        id: version
+        run: |
+          # Get version from git describe: v0.1.0-43-gdf36faf -> 0.1.0.dev43
+          GIT_DESCRIBE=$(git describe --tags --long 2>/dev/null || echo "v0.1.0-0-g$(git rev-parse --short HEAD)")
+          echo "Git describe: $GIT_DESCRIBE"
+
+          if [[ $GIT_DESCRIBE =~ ^v?([0-9.]+)-([0-9]+)-g([a-f0-9]+)$ ]]; then
+            BASE_VERSION="${BASH_REMATCH[1]}"
+            COMMITS_AHEAD="${BASH_REMATCH[2]}"
+            if [ "$COMMITS_AHEAD" = "0" ]; then
+              VERSION="$BASE_VERSION"
+            else
+              VERSION="${BASE_VERSION}.dev${COMMITS_AHEAD}"
+            fi
+          else
+            VERSION="0.1.0.dev${{ github.run_number }}"
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
 
       - name: Build wheels
         uses: PyO3/maturin-action@v1
@@ -109,6 +165,8 @@ jobs:
           args: --release --out dist --find-interpreter
           sccache: "true"
           working-directory: priors
+        env:
+          MATURIN_PEP440_VERSION: ${{ steps.version.outputs.version }}
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -120,13 +178,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Download version files
-        uses: actions/download-artifact@v4
-        continue-on-error: true
         with:
-          name: version-files
-          path: priors
+          fetch-depth: 0  # Full history for git describe
+
+      - name: Generate dev version
+        id: version
+        run: |
+          # Get version from git describe: v0.1.0-43-gdf36faf -> 0.1.0.dev43
+          GIT_DESCRIBE=$(git describe --tags --long 2>/dev/null || echo "v0.1.0-0-g$(git rev-parse --short HEAD)")
+          echo "Git describe: $GIT_DESCRIBE"
+
+          if [[ $GIT_DESCRIBE =~ ^v?([0-9.]+)-([0-9]+)-g([a-f0-9]+)$ ]]; then
+            BASE_VERSION="${BASH_REMATCH[1]}"
+            COMMITS_AHEAD="${BASH_REMATCH[2]}"
+            if [ "$COMMITS_AHEAD" = "0" ]; then
+              VERSION="$BASE_VERSION"
+            else
+              VERSION="${BASE_VERSION}.dev${COMMITS_AHEAD}"
+            fi
+          else
+            VERSION="0.1.0.dev${{ github.run_number }}"
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
 
       - name: Build sdist
         uses: PyO3/maturin-action@v1
@@ -134,6 +209,8 @@ jobs:
           command: sdist
           args: --out dist
           working-directory: priors
+        env:
+          MATURIN_PEP440_VERSION: ${{ steps.version.outputs.version }}
 
       - name: Upload sdist
         uses: actions/upload-artifact@v4
@@ -155,11 +232,9 @@ jobs:
 
       - name: Display version info
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            echo "Publishing version: ${{ inputs.version }}"
-          else
-            echo "Publishing current version from pyproject.toml"
-          fi
+          echo "Publishing to TestPyPI (version auto-generated from git)"
+          echo "Built packages:"
+          ls -lh dist/
 
       - name: Publish to TestPyPI
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -168,4 +243,3 @@ jobs:
           password: ${{ secrets.TEST_PYPI_PASSWORD }}
           repository-url: https://test.pypi.org/legacy/
           verbose: true
-          skip-existing: true
