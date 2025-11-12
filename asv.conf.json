@@ -1,0 +1,38 @@
+{
+    "version": 1,
+    "project": "priors",
+    "project_url": "https://github.com/CloseChoice/priors",
+    "repo": ".",
+    "repo_subdir": "priors",
+    "branches": ["main", "improve-speed", "feat/**", "ci/**"],
+    "dvcs": "git",
+    "environment_type": "virtualenv",
+    "show_commit_url": "https://github.com/CloseChoice/priors/commit/",
+    "pythons": ["3.11", "3.12", "3.13"],
+
+    "build_command": [
+        "python -m pip install maturin",
+        "maturin build --release -o {build_cache_dir}"
+    ],
+
+    "install_command": ["in-dir={env_dir} python -m pip install {wheel_file}"],
+    "uninstall_command": ["return-code=any python -m pip uninstall -y {project}"],
+
+    "matrix": {
+        "req": {
+            "numpy": [""],
+            "pandas": [""],
+            "mlxtend": [""],
+            "efficient-apriori": [""]
+        }
+    },
+
+    "benchmark_dir": "benchmarks",
+    "env_dir": ".asv/env",
+    "results_dir": ".asv/results",
+    "html_dir": ".asv/html",
+
+    "regressions_first_commits": {
+        ".*": "5adfd57"
+    }
+}

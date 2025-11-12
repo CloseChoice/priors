@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -95,6 +98,18 @@ jobs:
           echo "new-release-published: ${{ steps.semantic.outputs.new-release-published }}"
           echo "new-release-version: ${{ steps.semantic.outputs.new-release-version }}"
           echo "new-release-git-tag: ${{ steps.semantic.outputs.new-release-git-tag }}"
+
+  benchmarks:
+    name: Run Benchmarks
+    needs: [commitlint, tests, linting]
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/benchmarks-reusable.yml
+    with:
+      deploy_to_pages: true  # Deploy production benchmarks to GitHub Pages
+      cache_key_prefix: 'prod'
 
   build-python:
     name: Build & Publish Python to PyPI

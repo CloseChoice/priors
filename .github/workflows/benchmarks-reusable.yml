@@ -1,0 +1,513 @@
+name: ASV Benchmarks (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      deploy_to_pages:
+        description: "Deploy results to GitHub Pages"
+        required: false
+        type: boolean
+        default: false
+      cache_key_prefix:
+        description: "Prefix for cache key (e.g., test, prod)"
+        required: false
+        type: string
+        default: "asv"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for ASV
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install asv virtualenv
+
+      - name: Restore ASV results cache
+        uses: actions/cache@v4
+        with:
+          path: .asv/results
+          key: ${{ inputs.cache_key_prefix }}-results-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            ${{ inputs.cache_key_prefix }}-results-${{ github.ref_name }}-
+            ${{ inputs.cache_key_prefix }}-results-main-
+            ${{ inputs.cache_key_prefix }}-results-
+
+      - name: Configure ASV machine
+        run: |
+          echo "Configuring ASV machine..."
+
+          # Use asv machine command to register the machine non-interactively
+          echo -e "\n\n\n\n\n\n" | asv machine --yes || {
+            echo "Warning: asv machine command failed, trying alternative approach..."
+
+            # Fallback: Create machine config manually
+            MACHINE_NAME=$(hostname)
+            mkdir -p .asv
+            cat > .asv/asv-machine.json << EOF
+          {
+            "$MACHINE_NAME": {
+              "arch": "x86_64",
+              "cpu": "GitHub Actions Runner",
+              "machine": "$MACHINE_NAME",
+              "num_cpu": "2",
+              "os": "Linux",
+              "ram": "7GB",
+              "version": 1
+            }
+          }
+          EOF
+          }
+
+          echo "✅ ASV machine configuration complete"
+
+      - name: Run benchmarks
+        run: |
+          set -e
+
+          echo "🔍 Checking for existing benchmark results..."
+
+          # Get machine name for ASV
+          MACHINE_NAME=$(hostname)
+          echo "Using machine: $MACHINE_NAME"
+
+          # Set ASV to use the machine without interactive prompt
+          export ASV_MACHINE="$MACHINE_NAME"
+
+          # Strategy for incremental benchmarks:
+          # 1. If results exist: Only benchmark NEW commits (since last run)
+          # 2. If no results: Full benchmark from 0.1.0 release (5adfd57)
+          # 3. Fallback: Always benchmark HEAD as minimum
+
+          if [ -f .asv/results/benchmarks.json ] && [ -d .asv/results/*/  ]; then
+            echo "✅ Found cached results, running incremental benchmarks..."
+            echo "📊 This will only benchmark NEW commits since last run (much faster!)"
+
+            # Try incremental benchmark
+            if asv run NEW --show-stderr --quick --machine="$MACHINE_NAME"; then
+              echo "✅ Incremental benchmark completed"
+            else
+              echo "⚠️  No new commits to benchmark, ensuring HEAD is benchmarked..."
+              asv run HEAD^! --show-stderr --quick --machine="$MACHINE_NAME" || true
+            fi
+          else
+            echo "🆕 No previous results found - running initial full benchmark"
+            echo "📦 Benchmarking from v0.1.0 (5adfd57) onwards to avoid Python 3.10 compatibility issues"
+            echo "⏱️  This will take ~5-10 minutes for the first run..."
+
+            # Full benchmark from 0.1.0 release
+            asv run 5adfd57..HEAD --show-stderr --quick --machine="$MACHINE_NAME" || {
+              echo "⚠️  Some commits failed to build, continuing..."
+              # Ensure at least HEAD is benchmarked
+              asv run HEAD^! --show-stderr --quick --machine="$MACHINE_NAME"
+            }
+          fi
+
+          # Verify HEAD was benchmarked
+          echo "🔍 Verifying HEAD commit is benchmarked..."
+          asv run HEAD^! --show-stderr --quick --machine="$MACHINE_NAME" || echo "⚠️  HEAD already benchmarked"
+
+          echo "✅ Benchmark run completed!"
+
+      - name: Sanitize branch name for artifact
+        id: sanitize_branch
+        run: |
+          SANITIZED_BRANCH=$(echo "${{ github.ref_name }}" | tr '/' '-')
+          echo "sanitized_branch=$SANITIZED_BRANCH" >> $GITHUB_OUTPUT
+
+      - name: Store results as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: asv-results-${{ steps.sanitize_branch.outputs.sanitized_branch }}-${{ github.sha }}
+          path: .asv/results/
+          retention-days: 90
+
+      - name: Download existing results from gh-pages (branch-scoped)
+        if: inputs.deploy_to_pages == true
+        continue-on-error: true
+        run: |
+          echo "📥 Downloading existing benchmark results for this branch from gh-pages..."
+
+          SANITIZED=${{ steps.sanitize_branch.outputs.sanitized_branch }}
+
+          # Fetch gh-pages branch
+          git fetch origin gh-pages || {
+            echo "ℹ️  No gh-pages branch yet, this will be the first deployment"
+            exit 0
+          }
+
+          # Prefer branch-scoped results stored at .asv/html/.asv/results/<branch>/ on gh-pages
+          TARGET_PATH=".asv/html/.asv/results/${SANITIZED}"
+
+          if git ls-tree -r origin/gh-pages --name-only | grep -q "^${TARGET_PATH}/"; then
+            echo "✅ Found branch-scoped results at ${TARGET_PATH} on gh-pages"
+
+            mkdir -p /tmp/gh-pages-results
+            # Extract only the branch-scoped results
+            git archive origin/gh-pages ${TARGET_PATH} | tar -x -C /tmp/gh-pages-results
+
+            # If extracted, merge into local .asv/results so ASV can use them for incremental runs
+            if [ -d "/tmp/gh-pages-results/${TARGET_PATH}" ]; then
+              echo "🔁 Merging branch results into local .asv/results/"
+              mkdir -p .asv/results
+              cp -rn /tmp/gh-pages-results/${TARGET_PATH}/* .asv/results/ 2>/dev/null || true
+              echo "✅ Merged branch results for ${SANITIZED}"
+            fi
+
+            rm -rf /tmp/gh-pages-results
+          else
+            echo "ℹ️  No branch-scoped results found for ${SANITIZED} on gh-pages; attempting legacy .asv/results/ merge"
+
+            # Fallback to legacy top-level .asv/results on gh-pages (backwards compatibility)
+            if git ls-tree -r origin/gh-pages --name-only | grep -q "^\.asv/results/"; then
+              echo "⚠️  Found legacy .asv/results on gh-pages — merging ALL results (this may include other branches)"
+              mkdir -p /tmp/gh-pages-results
+              git archive origin/gh-pages .asv/results | tar -x -C /tmp/gh-pages-results
+              if [ -d "/tmp/gh-pages-results/.asv/results" ]; then
+                cp -rn /tmp/gh-pages-results/.asv/results/* .asv/results/ 2>/dev/null || true
+                echo "✅ Merged legacy results"
+              fi
+              rm -rf /tmp/gh-pages-results
+            else
+              echo "ℹ️  No existing results found in gh-pages"
+            fi
+          fi
+
+      - name: Generate HTML report
+        run: |
+          echo "📊 Generating HTML report from benchmark results..."
+
+          CURRENT_BRANCH="${GITHUB_REF_NAME}"
+          echo "Current branch: $CURRENT_BRANCH"
+
+          # Generate unified HTML with all branches
+          # ASV automatically handles branch filtering in the UI
+          asv publish || {
+            echo "⚠️  asv publish had warnings, but continuing..."
+          }
+
+          echo "✅ HTML report generated in .asv/html/"
+          echo "📊 Dashboard includes data from all branches"
+
+      - name: Generate branch-specific HTML report
+        run: |
+          echo "📊 Generating branch-specific HTML report..."
+
+          CURRENT_BRANCH="${GITHUB_REF_NAME}"
+          SANITIZED_BRANCH=${{ steps.sanitize_branch.outputs.sanitized_branch }}
+          echo "Current branch: $CURRENT_BRANCH (sanitized: $SANITIZED_BRANCH)"
+
+          # Strategy: Generate HTML with ONLY this branch's results
+          # This ensures each branch has its own isolated dashboard
+
+          # 1. Backup the main dashboard (generated in previous step)
+          echo "Backing up main dashboard..."
+          mkdir -p /tmp/main_dashboard_backup
+          if [ -d ".asv/html" ]; then
+            cp -r .asv/html /tmp/main_dashboard_backup/ 2>/dev/null || true
+          fi
+
+          # 2. Backup all results
+          mkdir -p /tmp/all_results_backup
+          if [ -d ".asv/results" ]; then
+            cp -r .asv/results /tmp/all_results_backup/ 2>/dev/null || true
+          fi
+
+          # 3. Create clean results directory with only current branch data
+          rm -rf .asv/results/*
+
+          # Copy only current branch results back
+          if [ -d "/tmp/all_results_backup/results" ]; then
+            cp -r /tmp/all_results_backup/results/* .asv/results/ 2>/dev/null || true
+          fi
+
+          # 4. Generate HTML with only current branch data
+          echo "Running asv publish for branch: ${CURRENT_BRANCH}"
+          asv publish || {
+            echo "⚠️  asv publish had warnings, but continuing..."
+          }
+
+          # 5. Save branch-specific HTML to separate directory
+          mkdir -p .asv/html-branches/${SANITIZED_BRANCH}
+          echo "Copying branch-specific HTML to .asv/html-branches/${SANITIZED_BRANCH}/"
+          cp -r .asv/html/* .asv/html-branches/${SANITIZED_BRANCH}/ 2>/dev/null || true
+
+          # 5.1. Fix relative paths in branch-specific HTML files
+          # ASV uses relative paths that break in subdirectories (branches/{branch}/)
+          # We need to add ../../ prefix to make them work
+          echo "Fixing relative paths in branch-specific HTML..."
+
+          python3 <<'FIX_PATHS_SCRIPT'
+          import os
+          import re
+          from pathlib import Path
+
+          branch_dir = Path(".asv/html-branches/${{ steps.sanitize_branch.outputs.sanitized_branch }}")
+
+          # Pattern to match relative paths in href/src attributes
+          # Matches: href="path" or src="path" but NOT href="http://" or href="/absolute"
+          pattern = re.compile(r'((?:href|src)=")(?!http:|https:|/|\.\./)([^"]+)(")')
+
+          def fix_path(match):
+              """Add ../../ prefix to relative paths"""
+              prefix = match.group(1)  # href=" or src="
+              path = match.group(2)     # the actual path
+              suffix = match.group(3)   # closing "
+              return f'{prefix}../../{path}{suffix}'
+
+          # Fix all HTML files
+          for html_file in branch_dir.glob("**/*.html"):
+              try:
+                  content = html_file.read_text(encoding='utf-8')
+                  fixed_content = pattern.sub(fix_path, content)
+
+                  if content != fixed_content:
+                      html_file.write_text(fixed_content, encoding='utf-8')
+                      print(f"Fixed paths in: {html_file.relative_to(branch_dir)}")
+              except Exception as e:
+                  print(f"Warning: Could not fix {html_file}: {e}")
+
+          print("✅ Relative paths fixed in branch-specific HTML")
+          FIX_PATHS_SCRIPT
+
+          echo "✅ Branch-specific HTML generated at .asv/html-branches/${SANITIZED_BRANCH}/"
+
+          # 6. Restore main dashboard (IMPORTANT!)
+          echo "Restoring main dashboard..."
+          rm -rf .asv/html
+          if [ -d "/tmp/main_dashboard_backup/html" ]; then
+            cp -r /tmp/main_dashboard_backup/html .asv/ 2>/dev/null || true
+          fi
+
+          # 7. Restore all results
+          rm -rf .asv/results/*
+          if [ -d "/tmp/all_results_backup/results" ]; then
+            cp -r /tmp/all_results_backup/results/* .asv/results/ 2>/dev/null || true
+          fi
+
+          # 8. Cleanup
+          rm -rf /tmp/main_dashboard_backup /tmp/all_results_backup
+
+          echo "✅ Main dashboard restored"
+
+      - name: Create .nojekyll file
+        run: touch .asv/html/.nojekyll
+
+      - name: Deploy branch-specific dashboard to gh-pages structure
+        if: inputs.deploy_to_pages == true
+        run: |
+          echo "📋 Preparing branch-specific dashboard for deployment..."
+          SANITIZED=${{ steps.sanitize_branch.outputs.sanitized_branch }}
+
+          # Copy branch-specific HTML dashboard to deployment location
+          mkdir -p .asv/html/branches/${SANITIZED}
+          cp -r .asv/html-branches/${SANITIZED}/* .asv/html/branches/${SANITIZED}/ 2>/dev/null || true
+
+          # Also keep results in a separate location for historical tracking
+          mkdir -p .asv/html/.asv/results/${SANITIZED}
+          cp -r .asv/results/* .asv/html/.asv/results/${SANITIZED}/ 2>/dev/null || true
+
+          echo "✅ Branch dashboard deployed to .asv/html/branches/${SANITIZED}/"
+          echo "✅ Results archived at .asv/html/.asv/results/${SANITIZED}"
+
+      - name: Update branches manifest
+        if: inputs.deploy_to_pages == true
+        run: |
+          echo "📋 Updating branches manifest..."
+          SANITIZED=${{ steps.sanitize_branch.outputs.sanitized_branch }}
+
+          # Download existing manifest from gh-pages (if exists)
+          MANIFEST_FILE=".asv/html/branches-manifest.json"
+          mkdir -p .asv/html
+
+          # Try to get existing manifest from gh-pages
+          if git ls-tree -r origin/gh-pages --name-only | grep -q "^branches-manifest.json"; then
+            echo "Found existing manifest on gh-pages, downloading..."
+            git archive origin/gh-pages branches-manifest.json | tar -x -C .asv/html/ 2>/dev/null || echo "{\"branches\":[]}" > "$MANIFEST_FILE"
+          else
+            echo "No existing manifest found, creating new one"
+            echo '{"branches":[]}' > "$MANIFEST_FILE"
+          fi
+
+          # Parse existing branches and add current branch if not present
+          python3 <<'PYTHON_SCRIPT'
+          import json
+          import sys
+          from datetime import datetime
+
+          manifest_file = ".asv/html/branches-manifest.json"
+          current_branch = "${{ steps.sanitize_branch.outputs.sanitized_branch }}"
+          original_branch = "${{ github.ref_name }}"
+
+          try:
+              with open(manifest_file, 'r') as f:
+                  manifest = json.load(f)
+          except:
+              manifest = {"branches": []}
+
+          # Find or add branch entry
+          branch_entry = next((b for b in manifest.get("branches", []) if b["sanitized"] == current_branch), None)
+
+          if branch_entry:
+              # Update existing entry
+              branch_entry["last_updated"] = datetime.utcnow().isoformat() + "Z"
+              branch_entry["original"] = original_branch
+          else:
+              # Add new branch
+              manifest.setdefault("branches", []).append({
+                  "sanitized": current_branch,
+                  "original": original_branch,
+                  "last_updated": datetime.utcnow().isoformat() + "Z",
+                  "url": f"branches/{current_branch}/"
+              })
+
+          # Sort by last updated (newest first)
+          manifest["branches"] = sorted(manifest["branches"], key=lambda x: x["last_updated"], reverse=True)
+
+          with open(manifest_file, 'w') as f:
+              json.dump(manifest, f, indent=2)
+
+          print(f"✅ Manifest updated with {len(manifest['branches'])} branches")
+          for branch in manifest["branches"]:
+              print(f"  - {branch['original']} (sanitized: {branch['sanitized']})")
+          PYTHON_SCRIPT
+
+          echo "✅ Branches manifest updated at $MANIFEST_FILE"
+
+      - name: Add custom branch selector
+        if: inputs.deploy_to_pages == true
+        run: |
+          echo "📋 Adding custom branch selector interface..."
+
+          # Copy branch selector HTML if it exists
+          if [ -f "asv-branch-selector.html" ]; then
+            cp asv-branch-selector.html .asv/html/branches.html
+            echo "✅ Branch selector added at /branches.html"
+          else
+            echo "⚠️  asv-branch-selector.html not found, skipping"
+          fi
+
+      - name: Generate branch comparison reports
+        if: inputs.deploy_to_pages == true
+        continue-on-error: true
+        run: |
+          echo "📊 Generating branch comparison reports..."
+
+          # Get all branches that have been benchmarked
+          BENCHMARKED_BRANCHES=$(cat asv.conf.json | python3 -c "import sys, json; branches = json.load(sys.stdin).get('branches', []); print(' '.join([b for b in branches if '**' not in b]))" 2>/dev/null || echo "main improve-speed")
+
+          echo "Branches to compare: $BENCHMARKED_BRANCHES"
+
+          # Create comparisons directory
+          mkdir -p .asv/html/comparisons
+
+          # Generate pairwise comparisons
+          BRANCH_ARRAY=($BENCHMARKED_BRANCHES)
+          for i in "${!BRANCH_ARRAY[@]}"; do
+            for j in "${!BRANCH_ARRAY[@]}"; do
+              if [ $i -lt $j ]; then
+                BRANCH1="${BRANCH_ARRAY[$i]}"
+                BRANCH2="${BRANCH_ARRAY[$j]}"
+
+                echo "Comparing $BRANCH1 vs $BRANCH2..."
+
+                # Run ASV compare and save to file
+                asv compare "$BRANCH1" "$BRANCH2" > ".asv/html/comparisons/${BRANCH1//\//_}_vs_${BRANCH2//\//_}.txt" 2>&1 || {
+                  echo "⚠️  Comparison failed (branches may not have overlapping commits)"
+                  echo "Comparison unavailable: branches may not have overlapping commits" > ".asv/html/comparisons/${BRANCH1//\//_}_vs_${BRANCH2//\//_}.txt"
+                }
+              fi
+            done
+          done
+
+          echo "✅ Branch comparisons generated in .asv/html/comparisons/"
+
+      - name: Upload HTML for deployment
+        if: inputs.deploy_to_pages == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: asv-html-${{ github.sha }}
+          path: .asv/html/
+          retention-days: 1
+
+      - name: Generate benchmark summary
+        if: always()
+        run: |
+          echo "## 📊 Benchmark Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f .asv/results/benchmarks.json ]; then
+            # Count total benchmarks
+            RESULT_FILES=$(find .asv/results -name "*.json" -not -name "benchmarks.json" | wc -l)
+            echo "✅ Generated $RESULT_FILES result files" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Show recent commits that were benchmarked
+            echo "### Recent Benchmarked Commits" >> $GITHUB_STEP_SUMMARY
+            git log -5 --oneline >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            if [ "${{ inputs.deploy_to_pages }}" == "true" ]; then
+              echo "📈 View full results at: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "📦 Results stored as artifact (no deployment)" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "⚠️ No benchmark results generated" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: benchmark
+    if: inputs.deploy_to_pages == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    steps:
+      - name: Download HTML artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: asv-html-${{ github.sha }}
+          path: .asv/html/
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .asv/html
+          keep_files: true # Keep files from other branches for multi-branch support
+          force_orphan: false # Don't force orphan to preserve history
+          enable_jekyll: false # Disable Jekyll to allow dotfiles
+          user_name: "github-actions[bot]"
+          user_email: "github-actions[bot]@users.noreply.github.com"
+          commit_message: "Update benchmarks from ${{ github.ref_name }} @ ${{ github.sha }}"
+
+      - name: Deployment summary
+        run: |
+          echo "## 🚀 Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📈 Benchmarks deployed to GitHub Pages" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 View at: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Branch: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY

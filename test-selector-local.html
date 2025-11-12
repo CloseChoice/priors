@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Priors Benchmarks - Branch Selector (LOCAL TEST)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+
+        .test-banner {
+            background: #ff5722;
+            color: white;
+            padding: 0.75rem 2rem;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .controls {
+            background: white;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9rem;
+        }
+
+        select, button {
+            padding: 0.5rem 1rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        select:hover, button:hover {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+            font-weight: 600;
+        }
+
+        .info-bar {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 0.75rem 2rem;
+            color: #1565c0;
+            font-size: 0.9rem;
+        }
+
+        .debug-panel {
+            background: #263238;
+            color: #aed581;
+            padding: 1rem 2rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .debug-panel .error {
+            color: #ff5252;
+        }
+
+        .debug-panel .success {
+            color: #69f0ae;
+        }
+
+        .debug-panel .warn {
+            color: #ffd740;
+        }
+
+        #asv-frame {
+            width: 100%;
+            height: calc(100vh - 450px);
+            border: none;
+            background: white;
+            margin: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .mode-selector {
+            background: #fff3e0;
+            padding: 1rem 2rem;
+            border-bottom: 2px solid #ff9800;
+        }
+
+        .mode-selector label {
+            margin-right: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-banner">
+        🧪 LOCAL TEST MODE - Configure your test environment below
+    </div>
+
+    <div class="mode-selector">
+        <label>
+            <input type="radio" name="mode" value="production" checked>
+            Production (GitHub Pages)
+        </label>
+        <label>
+            <input type="radio" name="mode" value="local">
+            Local (.asv/html/)
+        </label>
+        <label>
+            <input type="radio" name="mode" value="custom">
+            Custom URL: <input type="text" id="custom-url" placeholder="http://localhost:8000" style="width: 300px;">
+        </label>
+    </div>
+
+    <div class="header">
+        <h1>📊 Priors Benchmarks</h1>
+        <p>Performance tracking across branches with ASV (Airspeed Velocity)</p>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="branch-selector">Branch:</label>
+            <select id="branch-selector">
+                <option value="">Loading branches...</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="compare-branch">Compare with:</label>
+            <select id="compare-branch">
+                <option value="">-- Select to compare --</option>
+            </select>
+        </div>
+
+        <button id="load-btn">Load Dashboard</button>
+        <button id="refresh-btn" style="background: #4caf50; border-color: #4caf50;">🔄 Refresh Branches</button>
+    </div>
+
+    <div class="info-bar">
+        <span id="current-branch-info">Select a branch to view benchmarks</span>
+    </div>
+
+    <div class="debug-panel" id="debug-panel">
+        <div>🔍 Debug Console</div>
+        <div>Waiting for initialization...</div>
+    </div>
+
+    <iframe id="asv-frame" src="about:blank"></iframe>
+
+    <script>
+        // Base path - configurable based on mode
+        let ASV_BASE_PATH = 'https://closechoice.github.io/priors';
+
+        // DOM Elements
+        const branchSelector = document.getElementById('branch-selector');
+        const compareBranchSelector = document.getElementById('compare-branch');
+        const loadBtn = document.getElementById('load-btn');
+        const refreshBtn = document.getElementById('refresh-btn');
+        const asvFrame = document.getElementById('asv-frame');
+        const currentBranchInfo = document.getElementById('current-branch-info');
+        const debugPanel = document.getElementById('debug-panel');
+        const customUrlInput = document.getElementById('custom-url');
+
+        // State
+        let currentBranch = null;
+        let availableBranches = [];
+        let branchData = {};
+
+        // Configure mode
+        document.querySelectorAll('input[name="mode"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                switch(e.target.value) {
+                    case 'production':
+                        ASV_BASE_PATH = 'https://closechoice.github.io/priors';
+                        break;
+                    case 'local':
+                        ASV_BASE_PATH = '.asv/html';
+                        break;
+                    case 'custom':
+                        ASV_BASE_PATH = customUrlInput.value || 'http://localhost:8000';
+                        break;
+                }
+                log(`📍 Base path changed to: ${ASV_BASE_PATH}`, 'success');
+            });
+        });
+
+        customUrlInput.addEventListener('change', () => {
+            document.querySelector('input[name="mode"][value="custom"]').checked = true;
+            ASV_BASE_PATH = customUrlInput.value;
+            log(`📍 Base path changed to: ${ASV_BASE_PATH}`, 'success');
+        });
+
+        // Debug logging
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warn' ? 'warn' : '';
+            const line = document.createElement('div');
+            line.className = className;
+            line.textContent = `[${timestamp}] ${message}`;
+            debugPanel.appendChild(line);
+            debugPanel.scrollTop = debugPanel.scrollHeight;
+            console.log(`[${type}]`, message);
+        }
+
+        // Sanitize branch name for URL path (same logic as in workflow)
+        function sanitizeBranch(branch) {
+            return branch.replace(/\//g, '-');
+        }
+
+        // Check if a branch has benchmark data
+        async function checkBranchHasData(branch) {
+            const sanitized = sanitizeBranch(branch);
+            const url = `${ASV_BASE_PATH}/branches/${sanitized}/index.html`;
+
+            try {
+                const response = await fetch(url, { method: 'HEAD' });
+                return response.ok;
+            } catch (error) {
+                return false;
+            }
+        }
+
+        // Discover deployed branches from manifest file
+        async function discoverDeployedBranches() {
+            log('🔍 Discovering deployed branches from manifest...');
+
+            try {
+                // Fetch the branches manifest created by the workflow
+                const manifestUrl = `${ASV_BASE_PATH}/branches-manifest.json`;
+                log(`Fetching manifest: ${manifestUrl}`);
+
+                const response = await fetch(manifestUrl);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const manifest = await response.json();
+
+                if (manifest.branches && Array.isArray(manifest.branches) && manifest.branches.length > 0) {
+                    // Extract sanitized branch names (these are the directory names)
+                    const branches = manifest.branches.map(b => b.sanitized);
+
+                    log(`✅ Found ${branches.length} deployed branches from manifest:`, 'success');
+                    manifest.branches.forEach(b => {
+                        log(`  - ${b.original} → ${b.sanitized} (updated: ${b.last_updated})`, 'success');
+                    });
+
+                    return branches;
+                } else {
+                    log('⚠️  Manifest is empty or invalid', 'warn');
+                    return [];
+                }
+            } catch (error) {
+                log(`⚠️  Could not fetch branches manifest: ${error.message}`, 'warn');
+                log('Falling back to index.json discovery...', 'warn');
+                return [];
+            }
+        }
+
+        // Discover branches with actual benchmark data
+        async function discoverAvailableBranches() {
+            log('🔍 Discovering branches with benchmark data...');
+
+            // Primary strategy: Discover deployed branches from directory structure
+            let branches = await discoverDeployedBranches();
+
+            // If directory discovery succeeded, verify each branch has data
+            if (branches.length > 0) {
+                log('Verifying branch data availability...');
+                const branchChecks = await Promise.all(
+                    branches.map(async (branch) => {
+                        const hasData = await checkBranchHasData(branch);
+                        log(`${branch}: ${hasData ? '✅ has data' : '⚠️  no data'}`, hasData ? 'success' : 'warn');
+                        return { branch, hasData };
+                    })
+                );
+
+                const validBranches = branchChecks
+                    .filter(check => check.hasData)
+                    .map(check => check.branch);
+
+                if (validBranches.length > 0) {
+                    return validBranches;
+                }
+            }
+
+            // Fallback: Try to fetch the main index.json
+            log('Attempting fallback: loading branches from index.json...');
+            try {
+                const url = `${ASV_BASE_PATH}/index.json`;
+                log(`Fetching: ${url}`);
+
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                log('✅ index.json loaded successfully', 'success');
+
+                if (data.params && data.params.branch) {
+                    const branchesFromData = data.params.branch;
+                    log(`Branches from index.json: ${branchesFromData.join(', ')}`, 'success');
+
+                    const branchChecks = await Promise.all(
+                        branchesFromData.map(async (branch) => {
+                            const hasData = await checkBranchHasData(branch);
+                            log(`${branch}: ${hasData ? '✅ has data' : '⚠️  no data'}`, hasData ? 'success' : 'warn');
+                            return { branch, hasData };
+                        })
+                    );
+
+                    const validBranches = branchChecks
+                        .filter(check => check.hasData)
+                        .map(check => check.branch);
+
+                    if (validBranches.length > 0) {
+                        return validBranches;
+                    }
+                }
+
+                log('⚠️  No branches with benchmark data found', 'warn');
+                return [];
+            } catch (error) {
+                log(`⚠️  Could not discover branches: ${error.message}`, 'warn');
+                return [];
+            }
+        }
+
+        // Initialize
+        async function init() {
+            log('🚀 Initializing branch selector...');
+            log(`Loading from: ${ASV_BASE_PATH}`);
+
+            try {
+                availableBranches = await discoverAvailableBranches();
+                log(`Final branches with data: ${availableBranches.join(', ')}`);
+
+                if (availableBranches.length === 0) {
+                    log('❌ No branches with benchmark data available!', 'error');
+                    branchSelector.innerHTML = '<option value="">No branches with data</option>';
+                    currentBranchInfo.textContent = 'No benchmark data found';
+                    return;
+                }
+
+                populateBranchSelectors(availableBranches);
+                log('✅ Branch selectors populated', 'success');
+
+                currentBranch = availableBranches[0];
+                branchSelector.value = currentBranch;
+                currentBranchInfo.textContent = `Selected branch: ${currentBranch} (click "Load Dashboard" to view)`;
+                log(`Default branch selected: ${currentBranch}`);
+
+            } catch (error) {
+                log(`❌ Initialization failed: ${error.message}`, 'error');
+                console.error('Init error:', error);
+            }
+        }
+
+        function populateBranchSelectors(branches) {
+            if (!branches || branches.length === 0) {
+                log('❌ No branches to populate', 'error');
+                return;
+            }
+
+            branchSelector.innerHTML = branches.map(branch =>
+                `<option value="${branch}">${branch}</option>`
+            ).join('');
+
+            compareBranchSelector.innerHTML = '<option value="">-- Select to compare --</option>' +
+                branches.map(branch =>
+                    `<option value="${branch}">${branch}</option>`
+                ).join('');
+
+            log(`Populated ${branches.length} branches in selectors`);
+        }
+
+        async function loadDashboard() {
+            if (!currentBranch) {
+                log('❌ No branch selected', 'error');
+                return;
+            }
+
+            log(`Loading dashboard for: ${currentBranch}`);
+
+            // Strategy: Use main ASV dashboard with branch parameter
+            // ASV has built-in branch filtering that works reliably
+            const mainUrl = `${ASV_BASE_PATH}/index.html#${currentBranch}`;
+
+            log(`Loading main ASV dashboard with branch filter: ${mainUrl}`);
+            log(`ASV will automatically filter to show: ${currentBranch}`);
+
+            asvFrame.src = mainUrl;
+            currentBranchInfo.textContent = `Viewing benchmarks for branch: ${currentBranch}`;
+            log('✅ Dashboard loaded with branch filter', 'success');
+
+            // Note: ASV's index.html handles the #branch URL fragment to filter data
+            // This is more reliable than maintaining separate dashboards
+        }
+
+        // Event Listeners
+        branchSelector.addEventListener('change', (e) => {
+            currentBranch = e.target.value;
+            log(`Branch changed to: ${currentBranch}`);
+            currentBranchInfo.textContent = `Selected branch: ${currentBranch} (click "Load Dashboard" to view)`;
+        });
+
+        loadBtn.addEventListener('click', loadDashboard);
+
+        refreshBtn.addEventListener('click', () => {
+            log('🔄 Refreshing branches...', 'success');
+            init();
+        });
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', () => {
+            log('DOM loaded, starting initialization...');
+            init();
+        });
+    </script>
+</body>
+</html>

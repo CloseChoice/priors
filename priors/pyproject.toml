@@ -4,11 +4,12 @@ requires = ["maturin>=1.0,<2.0"]
 
 [project]
 name = "priors"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Fast frequent pattern mining library"
-readme = "README.md"
+readme = {file = "README.md", content-type = "text/markdown"}
 dependencies = ["numpy",
                 ]
+keywords = ["pattern-mining", "frequent-patterns", "data-mining"]
 
 [project.optional-dependencies]
 dev = ["maturin>=1.0,<2.0",

@@ -1,10 +1,16 @@
-name: Test Semantic Release
+name: Semantic Release
 
 on:
   push:
     branches:
       - 'feat/**'
       - 'ci/**'
+      - 'improve-speed'
+  pull_request:
+    branches:
+      - 'feat/**'
+      - 'ci/**'
+      - 'improve-speed'
   workflow_dispatch:
     inputs:
       publish_to_testpypi:
@@ -191,6 +197,18 @@ jobs:
       version: ${{ needs.semantic-release.outputs.new-release-version }}
       # Only publish when manually triggered with checkbox enabled
       skip_publish: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.publish_to_testpypi != 'true' }}
+
+  benchmarks:
+    name: Run Benchmarks
+    needs: [commitlint, tests, linting]
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/benchmarks-reusable.yml
+    with:
+      deploy_to_pages: true  # Deploy all branch benchmarks to pages
+      cache_key_prefix: 'test'
 
   build-rust:
     name: Build Rust (Dry-Run)

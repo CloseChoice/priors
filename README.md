@@ -10,7 +10,7 @@ Blazing-fast implementation of the FP-Growth algorithm for frequent pattern mini
 - **💾 Memory-Efficient**: Flat array storage, minimal allocations
 - **🐍 Python Integration**: Seamless numpy integration via PyO3
 - **🧪 Well-Tested**: Comprehensive unit and integration tests
-- **📊 Benchmarked**: Detailed performance comparisons available
+- **📊 Benchmarked**: [Live performance benchmarks](https://closechoice.github.io/priors/)
 
 ## 🎯 What is FP-Growth?
 
@@ -169,6 +169,8 @@ cargo build --release
 2. **Tree optimizations**: Edit `tree/tree_ops.rs`
 3. **Algorithm variants**: Edit `mining.rs`
 4. **Python API**: Edit `lib.rs`
+
+
 
 ## 📈 Optimization Tips
 
