@@ -35,8 +35,12 @@ def assert_fpgrowth_results_equal(df1, df2, name1="Result 1", name2="Result 2", 
     df1_sorted["_sort_key"] = df1_sorted["itemsets"].apply(lambda x: tuple(sorted(x)))
     df2_sorted["_sort_key"] = df2_sorted["itemsets"].apply(lambda x: tuple(sorted(x)))
 
-    df1_sorted = df1_sorted.sort_values("_sort_key").drop(columns=["_sort_key"]).reset_index(drop=True)
-    df2_sorted = df2_sorted.sort_values("_sort_key").drop(columns=["_sort_key"]).reset_index(drop=True)
+    df1_sorted = (
+        df1_sorted.sort_values("_sort_key").drop(columns=["_sort_key"]).reset_index(drop=True)
+    )
+    df2_sorted = (
+        df2_sorted.sort_values("_sort_key").drop(columns=["_sort_key"]).reset_index(drop=True)
+    )
 
     # Use pandas testing utilities for robust comparison
     try:
