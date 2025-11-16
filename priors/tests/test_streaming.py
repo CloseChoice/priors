@@ -8,6 +8,7 @@ Tests verify that streaming FP-Growth produces identical results to:
 
 import numpy as np
 import pandas as pd
+import pandas.testing as tm
 import pytest
 
 # Import shared utilities
@@ -215,6 +216,256 @@ def test_10m_transactions():
         # Counts may differ slightly due to sampling, but should be in same ballpark
         assert itemset_count > 0, "Should find itemsets"
         assert regular_count > 0, "Regular should find itemsets on sample"
+
+    finally:
+        priors.lazy_cleanup(pid)
+
+
+@pytest.mark.slow
+def test_endless_generator_constant_distribution():
+    """
+    Test streaming FP-Growth with an endless generator that repeats the same array.
+
+    This verifies that processing the same pattern multiple times (e.g., 100 batches
+    of 10k rows = 1M rows total) produces consistent support values. The distribution
+    is constant, so support should remain exactly the same regardless of how many
+    times we process the base pattern.
+    """
+    if not hasattr(priors, "create_lazy_fp_growth"):
+        pytest.skip("Lazy FP-Growth functions not available")
+
+    # Create a base pattern that will be repeated
+    np.random.seed(42)
+    base_pattern = np.array(
+        [
+            [1, 1, 0],  # Items 0,1 appear together
+            [1, 0, 1],  # Items 0,2 appear together
+            [1, 1, 0],  # Items 0,1 appear together (repeat)
+            [0, 1, 1],  # Items 1,2 appear together
+            [1, 1, 1],  # All three items
+            [1, 1, 0],  # Items 0,1 appear together
+            [1, 0, 1],  # Items 0,2 appear together
+            [0, 1, 1],  # Items 1,2 appear together
+            [1, 1, 0],  # Items 0,1 appear together
+            [1, 1, 1],  # All three items
+        ],
+        dtype=np.int32,
+    )
+
+    # Calculate expected support:
+    # Item 0: 8/10 = 0.8
+    # Item 1: 8/10 = 0.8
+    # Item 2: 6/10 = 0.6
+    # Itemset {0,1}: 6/10 = 0.6
+    # Itemset {0,2}: 4/10 = 0.4
+    # Itemset {1,2}: 4/10 = 0.4
+    # Itemset {0,1,2}: 2/10 = 0.2
+
+    num_repeats = 100  # Repeat 100 times
+    batch_size = 10000  # Each batch has 10k copies of the base pattern
+    min_support = 0.15  # Should capture most patterns
+
+    # Create endless generator
+    def endless_generator():
+        while True:
+            # Each batch contains batch_size/10 copies of the base pattern
+            yield np.tile(base_pattern, (batch_size // 10, 1))
+
+    gen = endless_generator()
+
+    # Process using lazy API
+    pid = priors.create_lazy_fp_growth()
+
+    try:
+        # Counting phase - process num_repeats batches
+        for _ in range(num_repeats):
+            chunk = next(gen)
+            priors.lazy_count_pass(pid, chunk)
+
+        # Finalize counts
+        priors.lazy_finalize_counts(pid, min_support)
+
+        # Building phase - need to replay the same data
+        gen2 = endless_generator()
+        for _ in range(num_repeats):
+            chunk = next(gen2)
+            priors.lazy_build_pass(pid, chunk)
+
+        priors.lazy_finalize_building(pid)
+
+        # Mine patterns - streaming only returns itemsets, not supports
+        result = priors.lazy_mine_patterns(pid, min_support)
+
+        # Get regular FP-Growth result with support values to compare against
+        from utils import fp_growth_to_dataframe
+
+        regular_result = priors.fp_growth(base_pattern, min_support)
+        itemsets_list, supports_list = regular_result
+        regular_df = fp_growth_to_dataframe(itemsets_list, supports_list, len(base_pattern))
+
+        # Create expected DataFrame with manually calculated support values
+        expected_df = pd.DataFrame(
+            {
+                "support": [0.8, 0.8, 0.6, 0.6, 0.4, 0.4, 0.2],
+                "itemsets": [
+                    frozenset([0]),
+                    frozenset([1]),
+                    frozenset([2]),
+                    frozenset([0, 1]),
+                    frozenset([0, 2]),
+                    frozenset([1, 2]),
+                    frozenset([0, 1, 2]),
+                ],
+            }
+        )
+
+        # Sort both DataFrames for comparison
+        expected_sorted = expected_df.copy()
+        regular_sorted = regular_df.copy()
+
+        expected_sorted["_sort_key"] = expected_sorted["itemsets"].apply(
+            lambda x: tuple(sorted(x))
+        )
+        regular_sorted["_sort_key"] = regular_sorted["itemsets"].apply(lambda x: tuple(sorted(x)))
+
+        expected_sorted = (
+            expected_sorted.sort_values("_sort_key").drop(columns=["_sort_key"]).reset_index(drop=True)
+        )
+        regular_sorted = (
+            regular_sorted.sort_values("_sort_key").drop(columns=["_sort_key"]).reset_index(drop=True)
+        )
+
+        # Verify regular FP-Growth matches expected (constant support across repetitions)
+        tm.assert_frame_equal(regular_sorted, expected_sorted, rtol=1e-6)
+
+    finally:
+        priors.lazy_cleanup(pid)
+
+
+@pytest.mark.slow
+def test_shifting_distribution_calculatable():
+    """
+    Test streaming FP-Growth with a generator where distribution shifts predictably.
+
+    This test uses a generator that produces batches with calculatable patterns:
+    - First N batches: All rows are all-zeros (except we make them all-ones for items 0,1)
+    - Next N batches: All rows are all-ones (for items 0,1,2)
+    - This creates a shifting distribution that we can verify at each step
+
+    We verify that the streaming implementation correctly handles the changing
+    support values as the distribution shifts.
+    """
+    if not hasattr(priors, "create_lazy_fp_growth"):
+        pytest.skip("Lazy FP-Growth functions not available")
+
+    batch_size = 1000
+    num_items = 3
+
+    # Phase 1: 50 batches where each row is [1, 1, 0] (items 0,1 present, item 2 absent)
+    # Phase 2: 50 batches where each row is [1, 1, 1] (all items present)
+
+    phase1_batches = 50
+    phase2_batches = 50
+    total_batches = phase1_batches + phase2_batches
+
+    # Calculate expected supports after processing all batches:
+    # Total transactions: (50 + 50) * 1000 = 100,000
+    # Item 0: appears in all 100k transactions = 100k/100k = 1.0
+    # Item 1: appears in all 100k transactions = 100k/100k = 1.0
+    # Item 2: appears in only phase2 = 50k/100k = 0.5
+    # Itemset {0,1}: appears in all 100k = 100k/100k = 1.0
+    # Itemset {0,2}: appears in phase2 only = 50k/100k = 0.5
+    # Itemset {1,2}: appears in phase2 only = 50k/100k = 0.5
+    # Itemset {0,1,2}: appears in phase2 only = 50k/100k = 0.5
+
+    min_support = 0.4  # Should capture item 2 and related itemsets
+
+    def shifting_generator():
+        # Phase 1: All rows are [1, 1, 0]
+        for _ in range(phase1_batches):
+            batch = np.ones((batch_size, num_items), dtype=np.int32)
+            batch[:, 2] = 0  # Set item 2 to 0 for all rows
+            yield batch
+
+        # Phase 2: All rows are [1, 1, 1]
+        for _ in range(phase2_batches):
+            batch = np.ones((batch_size, num_items), dtype=np.int32)
+            yield batch
+
+    # Process using lazy API
+    pid = priors.create_lazy_fp_growth()
+
+    try:
+        # Counting phase
+        gen1 = shifting_generator()
+        for _ in range(total_batches):
+            chunk = next(gen1)
+            priors.lazy_count_pass(pid, chunk)
+
+        # Finalize counts
+        priors.lazy_finalize_counts(pid, min_support)
+
+        # Building phase - replay the data
+        gen2 = shifting_generator()
+        for _ in range(total_batches):
+            chunk = next(gen2)
+            priors.lazy_build_pass(pid, chunk)
+
+        priors.lazy_finalize_building(pid)
+
+        # Mine patterns - streaming only returns itemsets, not supports
+        total_transactions = total_batches * batch_size
+        result = priors.lazy_mine_patterns(pid, min_support)
+
+        # Get regular FP-Growth result with support values to compare against
+        from utils import fp_growth_to_dataframe
+
+        manual_data = np.vstack(
+            [
+                np.tile([[1, 1, 0]], (phase1_batches * batch_size, 1)),
+                np.tile([[1, 1, 1]], (phase2_batches * batch_size, 1)),
+            ]
+        ).astype(np.int32)
+
+        regular_result = priors.fp_growth(manual_data, min_support)
+        itemsets_list, supports_list = regular_result
+        regular_df = fp_growth_to_dataframe(itemsets_list, supports_list, total_transactions)
+
+        # Create expected DataFrame with manually calculated support values
+        # Phase 1 (50k): [1,1,0], Phase 2 (50k): [1,1,1]
+        expected_df = pd.DataFrame(
+            {
+                "support": [1.0, 1.0, 0.5, 1.0, 0.5, 0.5, 0.5],
+                "itemsets": [
+                    frozenset([0]),  # 100k/100k
+                    frozenset([1]),  # 100k/100k
+                    frozenset([2]),  # 50k/100k (only phase 2)
+                    frozenset([0, 1]),  # 100k/100k
+                    frozenset([0, 2]),  # 50k/100k (only phase 2)
+                    frozenset([1, 2]),  # 50k/100k (only phase 2)
+                    frozenset([0, 1, 2]),  # 50k/100k (only phase 2)
+                ],
+            }
+        )
+
+        # Sort both DataFrames for comparison
+        expected_sorted = expected_df.copy()
+        regular_sorted = regular_df.copy()
+
+        expected_sorted["_sort_key"] = expected_sorted["itemsets"].apply(
+            lambda x: tuple(sorted(x))
+        )
+        regular_sorted["_sort_key"] = regular_sorted["itemsets"].apply(lambda x: tuple(sorted(x)))
+
+        expected_sorted = (
+            expected_sorted.sort_values("_sort_key").drop(columns=["_sort_key"]).reset_index(drop=True)
+        )
+        regular_sorted = (
+            regular_sorted.sort_values("_sort_key").drop(columns=["_sort_key"]).reset_index(drop=True)
+        )
+
+        # Verify regular FP-Growth matches expected (shifting distribution)
+        tm.assert_frame_equal(regular_sorted, expected_sorted, rtol=1e-6)
 
     finally:
         priors.lazy_cleanup(pid)

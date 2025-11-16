@@ -5,12 +5,44 @@ Tests correctness and edge cases.
 
 import numpy as np
 import pandas as pd
+import pandas.testing as tm
 import pytest
 
 # Import shared utilities
 from conftest import count_itemsets, generate_transactions
 
 import priors
+
+
+def assert_fpgrowth_results_equal(df1, df2, rtol=1e-9):
+    """
+    Compare two FP-Growth result DataFrames for equality using pandas testing.
+
+    Args:
+        df1: First DataFrame with 'support' and 'itemsets' columns
+        df2: Second DataFrame with 'support' and 'itemsets' columns
+        rtol: Relative tolerance for floating point comparison
+
+    Raises:
+        AssertionError: If results don't match
+    """
+    # Sort both DataFrames by itemsets (converted to sorted tuples) for consistent comparison
+    df1_sorted = df1.copy()
+    df2_sorted = df2.copy()
+
+    df1_sorted["_sort_key"] = df1_sorted["itemsets"].apply(lambda x: tuple(sorted(x)))
+    df2_sorted["_sort_key"] = df2_sorted["itemsets"].apply(lambda x: tuple(sorted(x)))
+
+    df1_sorted = (
+        df1_sorted.sort_values("_sort_key").drop(columns=["_sort_key"]).reset_index(drop=True)
+    )
+    df2_sorted = (
+        df2_sorted.sort_values("_sort_key").drop(columns=["_sort_key"]).reset_index(drop=True)
+    )
+
+    # Use pandas testing utilities for robust comparison
+    tm.assert_frame_equal(df1_sorted, df2_sorted, rtol=rtol, check_names=True)
+
 
 # ============================================================================
 # Correctness Tests
@@ -57,30 +89,8 @@ def test_fpgrowth_vs_mlxtend_basic():
     )
     mlxtend_result = mlxtend_fpgrowth(df, min_support=min_support, use_colnames=False)
 
-    # Debug output
-    print("\n=== PRIORS RESULT ===")
-    print(priors_result)
-    print("\n=== MLXTEND RESULT ===")
-    print(mlxtend_result)
-
-    # Compare DataFrames
-    priors_count = len(priors_result)
-    mlxtend_count = len(mlxtend_result)
-    assert priors_count == mlxtend_count, (
-        f"Itemset count mismatch: priors={priors_count}, mlxtend={mlxtend_count}"
-    )
-
-    # Compare itemsets and supports (order-independent)
-    priors_set = {
-        (frozenset(row["itemsets"]), row["support"]) for _, row in priors_result.iterrows()
-    }
-    mlxtend_set = {
-        (frozenset(row["itemsets"]), row["support"]) for _, row in mlxtend_result.iterrows()
-    }
-
-    assert priors_set == mlxtend_set, (
-        f"Itemsets mismatch:\nPriors only: {priors_set - mlxtend_set}\nMlxtend only: {mlxtend_set - priors_set}"
-    )
+    # Compare results
+    assert_fpgrowth_results_equal(priors_result, mlxtend_result)
 
 
 def test_fpgrowth_vs_efficient_apriori_basic():
@@ -176,23 +186,7 @@ def test_fpgrowth_vs_mlxtend_medium():
     mlxtend_result = mlxtend_fpgrowth(df, min_support=min_support, use_colnames=False)
 
     # Compare results
-    priors_count = len(priors_result)
-    mlxtend_count = len(mlxtend_result)
-    assert priors_count == mlxtend_count, (
-        f"Itemset count mismatch: priors={priors_count}, mlxtend={mlxtend_count}"
-    )
-
-    # Compare itemsets and supports (order-independent)
-    priors_set = {
-        (frozenset(row["itemsets"]), row["support"]) for _, row in priors_result.iterrows()
-    }
-    mlxtend_set = {
-        (frozenset(row["itemsets"]), row["support"]) for _, row in mlxtend_result.iterrows()
-    }
-
-    assert priors_set == mlxtend_set, (
-        f"Itemsets mismatch:\nPriors only: {priors_set - mlxtend_set}\nMlxtend only: {mlxtend_set - priors_set}"
-    )
+    assert_fpgrowth_results_equal(priors_result, mlxtend_result)
 
 
 # ============================================================================
