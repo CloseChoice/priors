@@ -220,6 +220,39 @@ def test_10m_transactions():
         priors.lazy_cleanup(pid)
 
 
+def extract_itemsets_from_fp_growth_result(result):
+    """
+    Helper function to extract itemsets from fp_growth result.
+
+    Args:
+        result: Result from fp_growth - can be tuple (itemsets_list, supports_list) or list
+
+    Returns:
+        set: Set of itemsets as tuples of Python ints
+    """
+    itemsets = set()
+
+    # Handle tuple format (itemsets_list, supports_list)
+    if isinstance(result, tuple) and len(result) == 2:
+        itemsets_list, _ = result
+        for level in itemsets_list:
+            if level is not None and hasattr(level, "shape") and level.shape[0] > 0:
+                for i in range(level.shape[0]):
+                    # Convert numpy uint64 to Python int
+                    itemset = tuple(int(x) for x in sorted(level[i]))
+                    itemsets.add(itemset)
+    # Handle list format
+    elif isinstance(result, list):
+        for level in result:
+            if level is not None and hasattr(level, "shape") and level.shape[0] > 0:
+                for i in range(level.shape[0]):
+                    # Convert numpy uint64 to Python int
+                    itemset = tuple(int(x) for x in sorted(level[i]))
+                    itemsets.add(itemset)
+
+    return itemsets
+
+
 @pytest.mark.slow
 def test_endless_generator_constant_distribution():
     """
@@ -294,25 +327,46 @@ def test_endless_generator_constant_distribution():
 
         # Mine patterns
         result = priors.lazy_mine_patterns(pid, min_support)
-        streaming_count = count_itemsets(result)
 
-        # Now verify against the base pattern processed once
-        # The support should be EXACTLY the same since we're just repeating
-        regular_result = priors.fp_growth(base_pattern, min_support)
-        regular_count = count_itemsets(regular_result)
+        # Extract actual itemsets from streaming result
+        streaming_itemsets = extract_itemsets_from_fp_growth_result(result)
 
-        # The counts should match exactly
-        assert streaming_count == regular_count, (
-            f"Support should be constant! Streaming (100x repeats) = {streaming_count}, "
-            f"Regular (1x) = {regular_count}. Processing the same pattern multiple times "
-            f"should yield identical support values."
+        # Define expected itemsets based on manual calculation
+        # With min_support=0.15, we expect:
+        # - {0}: support 0.8 ✓
+        # - {1}: support 0.9 ✓
+        # - {2}: support 0.5 ✓
+        # - {0,1}: support 0.7 ✓
+        # - {0,2}: support 0.4 ✓
+        # - {1,2}: support 0.4 ✓
+        # - {0,1,2}: support 0.2 ✓
+        expected_itemsets = {
+            (0,),
+            (1,),
+            (2,),
+            (0, 1),
+            (0, 2),
+            (1, 2),
+            (0, 1, 2),
+        }
+
+        assert streaming_itemsets == expected_itemsets, (
+            f"Itemsets mismatch!\n"
+            f"Expected: {sorted(expected_itemsets)}\n"
+            f"Got: {sorted(streaming_itemsets)}\n"
+            f"Missing: {sorted(expected_itemsets - streaming_itemsets)}\n"
+            f"Extra: {sorted(streaming_itemsets - expected_itemsets)}"
         )
 
-        # Also verify we're finding the expected itemsets
-        # With min_support=0.15, we should find: {0}, {1}, {2}, {0,1}, {0,2}, {1,2}, {0,1,2}
-        # That's 7 itemsets total (3 size-1, 3 size-2, 1 size-3)
-        assert streaming_count == 7, (
-            f"Expected 7 itemsets with min_support=0.15, got {streaming_count}"
+        # Verify support remains constant by comparing with single-batch run
+        regular_result = priors.fp_growth(base_pattern, min_support)
+        regular_itemsets = extract_itemsets_from_fp_growth_result(regular_result)
+
+        assert streaming_itemsets == regular_itemsets, (
+            f"Support should be constant! Processing the same pattern 100x times "
+            f"should yield identical itemsets as processing it once.\n"
+            f"Streaming itemsets: {sorted(streaming_itemsets)}\n"
+            f"Regular itemsets: {sorted(regular_itemsets)}"
         )
 
     finally:
@@ -392,20 +446,35 @@ def test_shifting_distribution_calculatable():
 
         # Mine patterns
         result = priors.lazy_mine_patterns(pid, min_support)
-        streaming_count = count_itemsets(result)
 
-        # Expected itemsets with min_support=0.4:
-        # - {0}: support 1.0 ✓
-        # - {1}: support 1.0 ✓
-        # - {2}: support 0.5 ✓
-        # - {0,1}: support 1.0 ✓
-        # - {0,2}: support 0.5 ✓
-        # - {1,2}: support 0.5 ✓
-        # - {0,1,2}: support 0.5 ✓
-        # Total: 7 itemsets
+        # Extract actual itemsets from streaming result
+        streaming_itemsets = extract_itemsets_from_fp_growth_result(result)
 
-        assert streaming_count == 7, (
-            f"Expected 7 itemsets with shifting distribution, got {streaming_count}"
+        # Define expected itemsets based on manual calculation
+        # With min_support=0.4, we expect:
+        # - {0}: support 1.0 (appears in all 100k transactions) ✓
+        # - {1}: support 1.0 (appears in all 100k transactions) ✓
+        # - {2}: support 0.5 (appears in 50k/100k transactions) ✓
+        # - {0,1}: support 1.0 (appears in all 100k transactions) ✓
+        # - {0,2}: support 0.5 (appears in 50k/100k transactions) ✓
+        # - {1,2}: support 0.5 (appears in 50k/100k transactions) ✓
+        # - {0,1,2}: support 0.5 (appears in 50k/100k transactions) ✓
+        expected_itemsets = {
+            (0,),
+            (1,),
+            (2,),
+            (0, 1),
+            (0, 2),
+            (1, 2),
+            (0, 1, 2),
+        }
+
+        assert streaming_itemsets == expected_itemsets, (
+            f"Itemsets mismatch!\n"
+            f"Expected: {sorted(expected_itemsets)}\n"
+            f"Got: {sorted(streaming_itemsets)}\n"
+            f"Missing: {sorted(expected_itemsets - streaming_itemsets)}\n"
+            f"Extra: {sorted(streaming_itemsets - expected_itemsets)}"
         )
 
         # Verify against a manually constructed dataset with the same distribution
@@ -417,11 +486,12 @@ def test_shifting_distribution_calculatable():
         )
 
         regular_result = priors.fp_growth(manual_data, min_support)
-        regular_count = count_itemsets(regular_result)
+        regular_itemsets = extract_itemsets_from_fp_growth_result(regular_result)
 
-        assert streaming_count == regular_count, (
-            f"Streaming with shifting distribution should match regular FP-Growth! "
-            f"Streaming = {streaming_count}, Regular = {regular_count}"
+        assert streaming_itemsets == regular_itemsets, (
+            f"Streaming with shifting distribution should match regular FP-Growth!\n"
+            f"Streaming itemsets: {sorted(streaming_itemsets)}\n"
+            f"Regular itemsets: {sorted(regular_itemsets)}"
         )
 
     finally:
