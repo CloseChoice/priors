@@ -236,7 +236,7 @@ def extract_itemsets_with_support(result, num_transactions):
     # Handle tuple format (itemsets_list, supports_list) - regular fp_growth
     if isinstance(result, tuple) and len(result) == 2:
         itemsets_list, supports_list = result
-        for level_itemsets, level_supports in zip(itemsets_list, supports_list):
+        for level_itemsets, level_supports in zip(itemsets_list, supports_list, strict=True):
             if level_itemsets is not None and hasattr(level_itemsets, "shape") and level_itemsets.shape[0] > 0:
                 for i in range(level_itemsets.shape[0]):
                     itemset = tuple(int(x) for x in sorted(level_itemsets[i]))
