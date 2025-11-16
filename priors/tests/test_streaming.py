@@ -220,25 +220,46 @@ def test_10m_transactions():
         priors.lazy_cleanup(pid)
 
 
-def extract_itemsets_from_fp_growth_result(result):
+def extract_itemsets_with_support(result, num_transactions):
     """
-    Helper function to extract itemsets from fp_growth result.
+    Extract itemsets and their support values from fp_growth result.
 
     Args:
-        result: Result from fp_growth - can be tuple (itemsets_list, supports_list) or list
+        result: Result from fp_growth - tuple (itemsets_list, supports_list) or list
+        num_transactions: Total number of transactions for support calculation
 
     Returns:
-        set: Set of itemsets as tuples of Python ints
+        dict: Mapping from itemset tuple to support value (float), or None if no supports available
     """
+    itemsets_with_support = {}
+
+    # Handle tuple format (itemsets_list, supports_list) - regular fp_growth
+    if isinstance(result, tuple) and len(result) == 2:
+        itemsets_list, supports_list = result
+        for level_itemsets, level_supports in zip(itemsets_list, supports_list):
+            if level_itemsets is not None and hasattr(level_itemsets, "shape") and level_itemsets.shape[0] > 0:
+                for i in range(level_itemsets.shape[0]):
+                    itemset = tuple(int(x) for x in sorted(level_itemsets[i]))
+                    support = level_supports[i] / num_transactions
+                    itemsets_with_support[itemset] = support
+    # Handle list format (itemsets only) - lazy API returns only itemsets without supports
+    elif isinstance(result, list):
+        # Return just itemsets as keys with None values (no support info from lazy API)
+        return None
+
+    return itemsets_with_support
+
+
+def extract_itemsets_only(result):
+    """Extract just the itemsets (without support) from any result format."""
     itemsets = set()
 
-    # Handle tuple format (itemsets_list, supports_list)
+    # Handle tuple format
     if isinstance(result, tuple) and len(result) == 2:
         itemsets_list, _ = result
         for level in itemsets_list:
             if level is not None and hasattr(level, "shape") and level.shape[0] > 0:
                 for i in range(level.shape[0]):
-                    # Convert numpy uint64 to Python int
                     itemset = tuple(int(x) for x in sorted(level[i]))
                     itemsets.add(itemset)
     # Handle list format
@@ -246,7 +267,6 @@ def extract_itemsets_from_fp_growth_result(result):
         for level in result:
             if level is not None and hasattr(level, "shape") and level.shape[0] > 0:
                 for i in range(level.shape[0]):
-                    # Convert numpy uint64 to Python int
                     itemset = tuple(int(x) for x in sorted(level[i]))
                     itemsets.add(itemset)
 
@@ -286,9 +306,9 @@ def test_endless_generator_constant_distribution():
 
     # Calculate expected support:
     # Item 0: 8/10 = 0.8
-    # Item 1: 9/10 = 0.9
-    # Item 2: 5/10 = 0.5
-    # Itemset {0,1}: 7/10 = 0.7
+    # Item 1: 8/10 = 0.8
+    # Item 2: 6/10 = 0.6
+    # Itemset {0,1}: 6/10 = 0.6
     # Itemset {0,2}: 4/10 = 0.4
     # Itemset {1,2}: 4/10 = 0.4
     # Itemset {0,1,2}: 2/10 = 0.2
@@ -325,49 +345,45 @@ def test_endless_generator_constant_distribution():
 
         priors.lazy_finalize_building(pid)
 
-        # Mine patterns
+        # Mine patterns and extract itemsets
         result = priors.lazy_mine_patterns(pid, min_support)
+        streaming_itemsets = extract_itemsets_only(result)
 
-        # Extract actual itemsets from streaming result
-        streaming_itemsets = extract_itemsets_from_fp_growth_result(result)
-
-        # Define expected itemsets based on manual calculation
-        # With min_support=0.15, we expect:
-        # - {0}: support 0.8 ✓
-        # - {1}: support 0.9 ✓
-        # - {2}: support 0.5 ✓
-        # - {0,1}: support 0.7 ✓
-        # - {0,2}: support 0.4 ✓
-        # - {1,2}: support 0.4 ✓
-        # - {0,1,2}: support 0.2 ✓
-        expected_itemsets = {
-            (0,),
-            (1,),
-            (2,),
-            (0, 1),
-            (0, 2),
-            (1, 2),
-            (0, 1, 2),
+        # Expected itemsets with manually calculated support values
+        expected_with_support = {
+            (0,): 0.8,
+            (1,): 0.8,
+            (2,): 0.6,
+            (0, 1): 0.6,
+            (0, 2): 0.4,
+            (1, 2): 0.4,
+            (0, 1, 2): 0.2,
         }
 
-        assert streaming_itemsets == expected_itemsets, (
+        # Verify streaming finds all expected itemsets
+        assert streaming_itemsets == expected_with_support.keys(), (
             f"Itemsets mismatch!\n"
-            f"Expected: {sorted(expected_itemsets)}\n"
+            f"Expected: {sorted(expected_with_support.keys())}\n"
             f"Got: {sorted(streaming_itemsets)}\n"
-            f"Missing: {sorted(expected_itemsets - streaming_itemsets)}\n"
-            f"Extra: {sorted(streaming_itemsets - expected_itemsets)}"
+            f"Missing: {sorted(expected_with_support.keys() - streaming_itemsets)}\n"
+            f"Extra: {sorted(streaming_itemsets - expected_with_support.keys())}"
         )
 
-        # Verify support remains constant by comparing with single-batch run
+        # Verify against regular FP-Growth with support values
         regular_result = priors.fp_growth(base_pattern, min_support)
-        regular_itemsets = extract_itemsets_from_fp_growth_result(regular_result)
+        regular_with_support = extract_itemsets_with_support(regular_result, len(base_pattern))
 
-        assert streaming_itemsets == regular_itemsets, (
-            f"Support should be constant! Processing the same pattern 100x times "
-            f"should yield identical itemsets as processing it once.\n"
-            f"Streaming itemsets: {sorted(streaming_itemsets)}\n"
-            f"Regular itemsets: {sorted(regular_itemsets)}"
+        # Check itemsets match
+        assert streaming_itemsets == regular_with_support.keys(), (
+            f"Constant distribution failed: streaming and regular find different itemsets"
         )
+
+        # Verify regular FP-Growth support values match expected
+        for itemset, expected_support in expected_with_support.items():
+            actual_support = regular_with_support[itemset]
+            assert abs(actual_support - expected_support) < 1e-6, (
+                f"Support mismatch for {itemset}: expected {expected_support}, got {actual_support}"
+            )
 
     finally:
         priors.lazy_cleanup(pid)
@@ -444,55 +460,52 @@ def test_shifting_distribution_calculatable():
 
         priors.lazy_finalize_building(pid)
 
-        # Mine patterns
+        # Mine patterns and extract itemsets
+        total_transactions = total_batches * batch_size
         result = priors.lazy_mine_patterns(pid, min_support)
+        streaming_itemsets = extract_itemsets_only(result)
 
-        # Extract actual itemsets from streaming result
-        streaming_itemsets = extract_itemsets_from_fp_growth_result(result)
-
-        # Define expected itemsets based on manual calculation
-        # With min_support=0.4, we expect:
-        # - {0}: support 1.0 (appears in all 100k transactions) ✓
-        # - {1}: support 1.0 (appears in all 100k transactions) ✓
-        # - {2}: support 0.5 (appears in 50k/100k transactions) ✓
-        # - {0,1}: support 1.0 (appears in all 100k transactions) ✓
-        # - {0,2}: support 0.5 (appears in 50k/100k transactions) ✓
-        # - {1,2}: support 0.5 (appears in 50k/100k transactions) ✓
-        # - {0,1,2}: support 0.5 (appears in 50k/100k transactions) ✓
-        expected_itemsets = {
-            (0,),
-            (1,),
-            (2,),
-            (0, 1),
-            (0, 2),
-            (1, 2),
-            (0, 1, 2),
+        # Expected itemsets with manually calculated support values
+        # Phase 1 (50k): [1,1,0], Phase 2 (50k): [1,1,1]
+        expected_with_support = {
+            (0,): 1.0,      # 100k/100k
+            (1,): 1.0,      # 100k/100k
+            (2,): 0.5,      # 50k/100k (only phase 2)
+            (0, 1): 1.0,    # 100k/100k
+            (0, 2): 0.5,    # 50k/100k (only phase 2)
+            (1, 2): 0.5,    # 50k/100k (only phase 2)
+            (0, 1, 2): 0.5, # 50k/100k (only phase 2)
         }
 
-        assert streaming_itemsets == expected_itemsets, (
+        # Verify streaming finds all expected itemsets
+        assert streaming_itemsets == expected_with_support.keys(), (
             f"Itemsets mismatch!\n"
-            f"Expected: {sorted(expected_itemsets)}\n"
+            f"Expected: {sorted(expected_with_support.keys())}\n"
             f"Got: {sorted(streaming_itemsets)}\n"
-            f"Missing: {sorted(expected_itemsets - streaming_itemsets)}\n"
-            f"Extra: {sorted(streaming_itemsets - expected_itemsets)}"
+            f"Missing: {sorted(expected_with_support.keys() - streaming_itemsets)}\n"
+            f"Extra: {sorted(streaming_itemsets - expected_with_support.keys())}"
         )
 
-        # Verify against a manually constructed dataset with the same distribution
-        manual_data = np.vstack(
-            [
-                np.tile(np.array([[1, 1, 0]], dtype=np.int32), (phase1_batches * batch_size, 1)),
-                np.tile(np.array([[1, 1, 1]], dtype=np.int32), (phase2_batches * batch_size, 1)),
-            ]
-        )
+        # Verify against regular FP-Growth on same distribution
+        manual_data = np.vstack([
+            np.tile([[1, 1, 0]], (phase1_batches * batch_size, 1)),
+            np.tile([[1, 1, 1]], (phase2_batches * batch_size, 1)),
+        ]).astype(np.int32)
 
         regular_result = priors.fp_growth(manual_data, min_support)
-        regular_itemsets = extract_itemsets_from_fp_growth_result(regular_result)
+        regular_with_support = extract_itemsets_with_support(regular_result, total_transactions)
 
-        assert streaming_itemsets == regular_itemsets, (
-            f"Streaming with shifting distribution should match regular FP-Growth!\n"
-            f"Streaming itemsets: {sorted(streaming_itemsets)}\n"
-            f"Regular itemsets: {sorted(regular_itemsets)}"
+        # Check streaming finds same itemsets as regular
+        assert streaming_itemsets == regular_with_support.keys(), (
+            f"Streaming and regular FP-Growth find different itemsets"
         )
+
+        # Verify regular FP-Growth support values match expected
+        for itemset, expected_support in expected_with_support.items():
+            actual_support = regular_with_support[itemset]
+            assert abs(actual_support - expected_support) < 1e-6, (
+                f"Support mismatch for {itemset}: expected {expected_support}, got {actual_support}"
+            )
 
     finally:
         priors.lazy_cleanup(pid)
