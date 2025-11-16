@@ -8,6 +8,7 @@ Tests verify that streaming FP-Growth produces identical results to:
 
 import numpy as np
 import pandas as pd
+import pandas.testing as tm
 import pytest
 
 # Import shared utilities
@@ -220,63 +221,6 @@ def test_10m_transactions():
         priors.lazy_cleanup(pid)
 
 
-def extract_itemsets_with_support(result, num_transactions):
-    """
-    Extract itemsets and their support values from fp_growth result.
-
-    Args:
-        result: Result from fp_growth - tuple (itemsets_list, supports_list) or list
-        num_transactions: Total number of transactions for support calculation
-
-    Returns:
-        dict: Mapping from itemset tuple to support value (float), or None if no supports available
-    """
-    itemsets_with_support = {}
-
-    # Handle tuple format (itemsets_list, supports_list) - regular fp_growth
-    if isinstance(result, tuple) and len(result) == 2:
-        itemsets_list, supports_list = result
-        for level_itemsets, level_supports in zip(itemsets_list, supports_list, strict=True):
-            if (
-                level_itemsets is not None
-                and hasattr(level_itemsets, "shape")
-                and level_itemsets.shape[0] > 0
-            ):
-                for i in range(level_itemsets.shape[0]):
-                    itemset = tuple(int(x) for x in sorted(level_itemsets[i]))
-                    support = level_supports[i] / num_transactions
-                    itemsets_with_support[itemset] = support
-    # Handle list format (itemsets only) - lazy API returns only itemsets without supports
-    elif isinstance(result, list):
-        # Return just itemsets as keys with None values (no support info from lazy API)
-        return None
-
-    return itemsets_with_support
-
-
-def extract_itemsets_only(result):
-    """Extract just the itemsets (without support) from any result format."""
-    itemsets = set()
-
-    # Handle tuple format
-    if isinstance(result, tuple) and len(result) == 2:
-        itemsets_list, _ = result
-        for level in itemsets_list:
-            if level is not None and hasattr(level, "shape") and level.shape[0] > 0:
-                for i in range(level.shape[0]):
-                    itemset = tuple(int(x) for x in sorted(level[i]))
-                    itemsets.add(itemset)
-    # Handle list format
-    elif isinstance(result, list):
-        for level in result:
-            if level is not None and hasattr(level, "shape") and level.shape[0] > 0:
-                for i in range(level.shape[0]):
-                    itemset = tuple(int(x) for x in sorted(level[i]))
-                    itemsets.add(itemset)
-
-    return itemsets
-
-
 @pytest.mark.slow
 def test_endless_generator_constant_distribution():
     """
@@ -349,45 +293,50 @@ def test_endless_generator_constant_distribution():
 
         priors.lazy_finalize_building(pid)
 
-        # Mine patterns and extract itemsets
+        # Mine patterns - streaming only returns itemsets, not supports
         result = priors.lazy_mine_patterns(pid, min_support)
-        streaming_itemsets = extract_itemsets_only(result)
 
-        # Expected itemsets with manually calculated support values
-        expected_with_support = {
-            (0,): 0.8,
-            (1,): 0.8,
-            (2,): 0.6,
-            (0, 1): 0.6,
-            (0, 2): 0.4,
-            (1, 2): 0.4,
-            (0, 1, 2): 0.2,
-        }
+        # Get regular FP-Growth result with support values to compare against
+        from utils import fp_growth_to_dataframe
 
-        # Verify streaming finds all expected itemsets
-        assert streaming_itemsets == expected_with_support.keys(), (
-            f"Itemsets mismatch!\n"
-            f"Expected: {sorted(expected_with_support.keys())}\n"
-            f"Got: {sorted(streaming_itemsets)}\n"
-            f"Missing: {sorted(expected_with_support.keys() - streaming_itemsets)}\n"
-            f"Extra: {sorted(streaming_itemsets - expected_with_support.keys())}"
-        )
-
-        # Verify against regular FP-Growth with support values
         regular_result = priors.fp_growth(base_pattern, min_support)
-        regular_with_support = extract_itemsets_with_support(regular_result, len(base_pattern))
+        itemsets_list, supports_list = regular_result
+        regular_df = fp_growth_to_dataframe(itemsets_list, supports_list, len(base_pattern))
 
-        # Check itemsets match
-        assert streaming_itemsets == regular_with_support.keys(), (
-            "Constant distribution failed: streaming and regular find different itemsets"
+        # Create expected DataFrame with manually calculated support values
+        expected_df = pd.DataFrame(
+            {
+                "support": [0.8, 0.8, 0.6, 0.6, 0.4, 0.4, 0.2],
+                "itemsets": [
+                    frozenset([0]),
+                    frozenset([1]),
+                    frozenset([2]),
+                    frozenset([0, 1]),
+                    frozenset([0, 2]),
+                    frozenset([1, 2]),
+                    frozenset([0, 1, 2]),
+                ],
+            }
         )
 
-        # Verify regular FP-Growth support values match expected
-        for itemset, expected_support in expected_with_support.items():
-            actual_support = regular_with_support[itemset]
-            assert abs(actual_support - expected_support) < 1e-6, (
-                f"Support mismatch for {itemset}: expected {expected_support}, got {actual_support}"
-            )
+        # Sort both DataFrames for comparison
+        expected_sorted = expected_df.copy()
+        regular_sorted = regular_df.copy()
+
+        expected_sorted["_sort_key"] = expected_sorted["itemsets"].apply(
+            lambda x: tuple(sorted(x))
+        )
+        regular_sorted["_sort_key"] = regular_sorted["itemsets"].apply(lambda x: tuple(sorted(x)))
+
+        expected_sorted = (
+            expected_sorted.sort_values("_sort_key").drop(columns=["_sort_key"]).reset_index(drop=True)
+        )
+        regular_sorted = (
+            regular_sorted.sort_values("_sort_key").drop(columns=["_sort_key"]).reset_index(drop=True)
+        )
+
+        # Verify regular FP-Growth matches expected (constant support across repetitions)
+        tm.assert_frame_equal(regular_sorted, expected_sorted, rtol=1e-6)
 
     finally:
         priors.lazy_cleanup(pid)
@@ -464,33 +413,13 @@ def test_shifting_distribution_calculatable():
 
         priors.lazy_finalize_building(pid)
 
-        # Mine patterns and extract itemsets
+        # Mine patterns - streaming only returns itemsets, not supports
         total_transactions = total_batches * batch_size
         result = priors.lazy_mine_patterns(pid, min_support)
-        streaming_itemsets = extract_itemsets_only(result)
 
-        # Expected itemsets with manually calculated support values
-        # Phase 1 (50k): [1,1,0], Phase 2 (50k): [1,1,1]
-        expected_with_support = {
-            (0,): 1.0,  # 100k/100k
-            (1,): 1.0,  # 100k/100k
-            (2,): 0.5,  # 50k/100k (only phase 2)
-            (0, 1): 1.0,  # 100k/100k
-            (0, 2): 0.5,  # 50k/100k (only phase 2)
-            (1, 2): 0.5,  # 50k/100k (only phase 2)
-            (0, 1, 2): 0.5,  # 50k/100k (only phase 2)
-        }
+        # Get regular FP-Growth result with support values to compare against
+        from utils import fp_growth_to_dataframe
 
-        # Verify streaming finds all expected itemsets
-        assert streaming_itemsets == expected_with_support.keys(), (
-            f"Itemsets mismatch!\n"
-            f"Expected: {sorted(expected_with_support.keys())}\n"
-            f"Got: {sorted(streaming_itemsets)}\n"
-            f"Missing: {sorted(expected_with_support.keys() - streaming_itemsets)}\n"
-            f"Extra: {sorted(streaming_itemsets - expected_with_support.keys())}"
-        )
-
-        # Verify against regular FP-Growth on same distribution
         manual_data = np.vstack(
             [
                 np.tile([[1, 1, 0]], (phase1_batches * batch_size, 1)),
@@ -499,19 +428,44 @@ def test_shifting_distribution_calculatable():
         ).astype(np.int32)
 
         regular_result = priors.fp_growth(manual_data, min_support)
-        regular_with_support = extract_itemsets_with_support(regular_result, total_transactions)
+        itemsets_list, supports_list = regular_result
+        regular_df = fp_growth_to_dataframe(itemsets_list, supports_list, total_transactions)
 
-        # Check streaming finds same itemsets as regular
-        assert streaming_itemsets == regular_with_support.keys(), (
-            "Streaming and regular FP-Growth find different itemsets"
+        # Create expected DataFrame with manually calculated support values
+        # Phase 1 (50k): [1,1,0], Phase 2 (50k): [1,1,1]
+        expected_df = pd.DataFrame(
+            {
+                "support": [1.0, 1.0, 0.5, 1.0, 0.5, 0.5, 0.5],
+                "itemsets": [
+                    frozenset([0]),  # 100k/100k
+                    frozenset([1]),  # 100k/100k
+                    frozenset([2]),  # 50k/100k (only phase 2)
+                    frozenset([0, 1]),  # 100k/100k
+                    frozenset([0, 2]),  # 50k/100k (only phase 2)
+                    frozenset([1, 2]),  # 50k/100k (only phase 2)
+                    frozenset([0, 1, 2]),  # 50k/100k (only phase 2)
+                ],
+            }
         )
 
-        # Verify regular FP-Growth support values match expected
-        for itemset, expected_support in expected_with_support.items():
-            actual_support = regular_with_support[itemset]
-            assert abs(actual_support - expected_support) < 1e-6, (
-                f"Support mismatch for {itemset}: expected {expected_support}, got {actual_support}"
-            )
+        # Sort both DataFrames for comparison
+        expected_sorted = expected_df.copy()
+        regular_sorted = regular_df.copy()
+
+        expected_sorted["_sort_key"] = expected_sorted["itemsets"].apply(
+            lambda x: tuple(sorted(x))
+        )
+        regular_sorted["_sort_key"] = regular_sorted["itemsets"].apply(lambda x: tuple(sorted(x)))
+
+        expected_sorted = (
+            expected_sorted.sort_values("_sort_key").drop(columns=["_sort_key"]).reset_index(drop=True)
+        )
+        regular_sorted = (
+            regular_sorted.sort_values("_sort_key").drop(columns=["_sort_key"]).reset_index(drop=True)
+        )
+
+        # Verify regular FP-Growth matches expected (shifting distribution)
+        tm.assert_frame_equal(regular_sorted, expected_sorted, rtol=1e-6)
 
     finally:
         priors.lazy_cleanup(pid)
