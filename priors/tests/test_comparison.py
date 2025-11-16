@@ -5,6 +5,7 @@ Tests correctness and edge cases.
 
 import numpy as np
 import pandas as pd
+import pandas.testing as tm
 import pytest
 
 # Import shared utilities
@@ -13,34 +14,35 @@ from conftest import count_itemsets, generate_transactions
 import priors
 
 
-def assert_fpgrowth_results_equal(df1, df2, name1="Result 1", name2="Result 2", precision=10):
+def assert_fpgrowth_results_equal(df1, df2, name1="Result 1", name2="Result 2", rtol=1e-9):
     """
-    Compare two FP-Growth result DataFrames for equality.
+    Compare two FP-Growth result DataFrames for equality using pandas testing.
 
     Args:
         df1: First DataFrame with 'support' and 'itemsets' columns
         df2: Second DataFrame with 'support' and 'itemsets' columns
         name1: Name for first result (for error messages)
         name2: Name for second result (for error messages)
-        precision: Number of decimal places to round support values
+        rtol: Relative tolerance for floating point comparison
 
     Raises:
         AssertionError: If results don't match
     """
-    # Check counts first
-    assert len(df1) == len(df2), f"Count mismatch: {name1}={len(df1)}, {name2}={len(df2)}"
+    # Sort both DataFrames by itemsets (converted to sorted tuples) for consistent comparison
+    df1_sorted = df1.copy()
+    df2_sorted = df2.copy()
 
-    # Convert to sets of (itemset, support) for order-independent comparison
-    set1 = {
-        (frozenset(row["itemsets"]), round(row["support"], precision)) for _, row in df1.iterrows()
-    }
-    set2 = {
-        (frozenset(row["itemsets"]), round(row["support"], precision)) for _, row in df2.iterrows()
-    }
+    df1_sorted["_sort_key"] = df1_sorted["itemsets"].apply(lambda x: tuple(sorted(x)))
+    df2_sorted["_sort_key"] = df2_sorted["itemsets"].apply(lambda x: tuple(sorted(x)))
 
-    assert set1 == set2, (
-        f"Itemsets mismatch:\n{name1} only: {set1 - set2}\n{name2} only: {set2 - set1}"
-    )
+    df1_sorted = df1_sorted.sort_values("_sort_key").drop(columns=["_sort_key"]).reset_index(drop=True)
+    df2_sorted = df2_sorted.sort_values("_sort_key").drop(columns=["_sort_key"]).reset_index(drop=True)
+
+    # Use pandas testing utilities for robust comparison
+    try:
+        tm.assert_frame_equal(df1_sorted, df2_sorted, rtol=rtol, check_names=True)
+    except AssertionError as e:
+        raise AssertionError(f"\n{name1} vs {name2} mismatch:\n{e}") from None
 
 
 # ============================================================================
