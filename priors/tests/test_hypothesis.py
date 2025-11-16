@@ -217,9 +217,7 @@ def test_fp_growth_monotonicity(transactions):
     for min_support in support_levels:
         # Run priors
         itemsets_list, supports_list = priors.fp_growth(transactions, min_support)
-        priors_result = fp_growth_to_dataframe(
-            itemsets_list, supports_list, len(transactions)
-        )
+        priors_result = fp_growth_to_dataframe(itemsets_list, supports_list, len(transactions))
         priors_count = len(priors_result)
 
         # Run mlxtend
@@ -273,26 +271,20 @@ def test_fp_growth_scale_invariance(base_transactions, scale_factor, min_support
     scaled_transactions = np.tile(base_transactions, (scale_factor, 1))
 
     # Run priors on base
-    itemsets_list_base, supports_list_base = priors.fp_growth(
-        base_transactions, min_support
-    )
+    itemsets_list_base, supports_list_base = priors.fp_growth(base_transactions, min_support)
     priors_result_base = fp_growth_to_dataframe(
         itemsets_list_base, supports_list_base, len(base_transactions)
     )
 
     # Run priors on scaled
-    itemsets_list_scaled, supports_list_scaled = priors.fp_growth(
-        scaled_transactions, min_support
-    )
+    itemsets_list_scaled, supports_list_scaled = priors.fp_growth(scaled_transactions, min_support)
     priors_result_scaled = fp_growth_to_dataframe(
         itemsets_list_scaled, supports_list_scaled, len(scaled_transactions)
     )
 
     # Extract itemsets (ignoring support values which might have tiny floating point diffs)
     base_itemsets = {frozenset(row["itemsets"]) for _, row in priors_result_base.iterrows()}
-    scaled_itemsets = {
-        frozenset(row["itemsets"]) for _, row in priors_result_scaled.iterrows()
-    }
+    scaled_itemsets = {frozenset(row["itemsets"]) for _, row in priors_result_scaled.iterrows()}
 
     assert base_itemsets == scaled_itemsets, (
         f"Scaling changed itemsets:\n"
@@ -305,9 +297,7 @@ def test_fp_growth_scale_invariance(base_transactions, scale_factor, min_support
         base_transactions.astype(bool),
         columns=[f"item_{i}" for i in range(base_transactions.shape[1])],
     )
-    mlxtend_result_base = mlxtend_fpgrowth(
-        df_base, min_support=min_support, use_colnames=False
-    )
+    mlxtend_result_base = mlxtend_fpgrowth(df_base, min_support=min_support, use_colnames=False)
     mlxtend_base_itemsets = {
         frozenset(row["itemsets"]) for _, row in mlxtend_result_base.iterrows()
     }
@@ -373,6 +363,5 @@ def test_fp_growth_support_values(transactions, min_support):
 
         # Support values should match (within floating point tolerance)
         assert abs(priors_support - mlxtend_support) < 1e-10, (
-            f"Support mismatch for {itemset}: "
-            f"priors={priors_support}, mlxtend={mlxtend_support}"
+            f"Support mismatch for {itemset}: priors={priors_support}, mlxtend={mlxtend_support}"
         )
