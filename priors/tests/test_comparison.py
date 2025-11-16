@@ -14,15 +14,13 @@ from conftest import count_itemsets, generate_transactions
 import priors
 
 
-def assert_fpgrowth_results_equal(df1, df2, name1="Result 1", name2="Result 2", rtol=1e-9):
+def assert_fpgrowth_results_equal(df1, df2, rtol=1e-9):
     """
     Compare two FP-Growth result DataFrames for equality using pandas testing.
 
     Args:
         df1: First DataFrame with 'support' and 'itemsets' columns
         df2: Second DataFrame with 'support' and 'itemsets' columns
-        name1: Name for first result (for error messages)
-        name2: Name for second result (for error messages)
         rtol: Relative tolerance for floating point comparison
 
     Raises:
@@ -43,10 +41,7 @@ def assert_fpgrowth_results_equal(df1, df2, name1="Result 1", name2="Result 2", 
     )
 
     # Use pandas testing utilities for robust comparison
-    try:
-        tm.assert_frame_equal(df1_sorted, df2_sorted, rtol=rtol, check_names=True)
-    except AssertionError as e:
-        raise AssertionError(f"\n{name1} vs {name2} mismatch:\n{e}") from None
+    tm.assert_frame_equal(df1_sorted, df2_sorted, rtol=rtol, check_names=True)
 
 
 # ============================================================================
@@ -95,7 +90,7 @@ def test_fpgrowth_vs_mlxtend_basic():
     mlxtend_result = mlxtend_fpgrowth(df, min_support=min_support, use_colnames=False)
 
     # Compare results
-    assert_fpgrowth_results_equal(priors_result, mlxtend_result, "Priors", "MLxtend")
+    assert_fpgrowth_results_equal(priors_result, mlxtend_result)
 
 
 def test_fpgrowth_vs_efficient_apriori_basic():
@@ -191,7 +186,7 @@ def test_fpgrowth_vs_mlxtend_medium():
     mlxtend_result = mlxtend_fpgrowth(df, min_support=min_support, use_colnames=False)
 
     # Compare results
-    assert_fpgrowth_results_equal(priors_result, mlxtend_result, "Priors", "MLxtend")
+    assert_fpgrowth_results_equal(priors_result, mlxtend_result)
 
 
 # ============================================================================
