@@ -7,10 +7,8 @@ This test file aims to achieve 100% coverage of the utils module.
 import numpy as np
 import pandas as pd
 import pytest
-
 from conftest import (
     count_itemsets,
-    extract_itemsets_from_result,
     generate_all_ones_transactions,
     generate_transactions,
 )

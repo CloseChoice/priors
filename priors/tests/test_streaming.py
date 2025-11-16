@@ -237,7 +237,11 @@ def extract_itemsets_with_support(result, num_transactions):
     if isinstance(result, tuple) and len(result) == 2:
         itemsets_list, supports_list = result
         for level_itemsets, level_supports in zip(itemsets_list, supports_list, strict=True):
-            if level_itemsets is not None and hasattr(level_itemsets, "shape") and level_itemsets.shape[0] > 0:
+            if (
+                level_itemsets is not None
+                and hasattr(level_itemsets, "shape")
+                and level_itemsets.shape[0] > 0
+            ):
                 for i in range(level_itemsets.shape[0]):
                     itemset = tuple(int(x) for x in sorted(level_itemsets[i]))
                     support = level_supports[i] / num_transactions
@@ -375,7 +379,7 @@ def test_endless_generator_constant_distribution():
 
         # Check itemsets match
         assert streaming_itemsets == regular_with_support.keys(), (
-            f"Constant distribution failed: streaming and regular find different itemsets"
+            "Constant distribution failed: streaming and regular find different itemsets"
         )
 
         # Verify regular FP-Growth support values match expected
@@ -468,13 +472,13 @@ def test_shifting_distribution_calculatable():
         # Expected itemsets with manually calculated support values
         # Phase 1 (50k): [1,1,0], Phase 2 (50k): [1,1,1]
         expected_with_support = {
-            (0,): 1.0,      # 100k/100k
-            (1,): 1.0,      # 100k/100k
-            (2,): 0.5,      # 50k/100k (only phase 2)
-            (0, 1): 1.0,    # 100k/100k
-            (0, 2): 0.5,    # 50k/100k (only phase 2)
-            (1, 2): 0.5,    # 50k/100k (only phase 2)
-            (0, 1, 2): 0.5, # 50k/100k (only phase 2)
+            (0,): 1.0,  # 100k/100k
+            (1,): 1.0,  # 100k/100k
+            (2,): 0.5,  # 50k/100k (only phase 2)
+            (0, 1): 1.0,  # 100k/100k
+            (0, 2): 0.5,  # 50k/100k (only phase 2)
+            (1, 2): 0.5,  # 50k/100k (only phase 2)
+            (0, 1, 2): 0.5,  # 50k/100k (only phase 2)
         }
 
         # Verify streaming finds all expected itemsets
@@ -487,17 +491,19 @@ def test_shifting_distribution_calculatable():
         )
 
         # Verify against regular FP-Growth on same distribution
-        manual_data = np.vstack([
-            np.tile([[1, 1, 0]], (phase1_batches * batch_size, 1)),
-            np.tile([[1, 1, 1]], (phase2_batches * batch_size, 1)),
-        ]).astype(np.int32)
+        manual_data = np.vstack(
+            [
+                np.tile([[1, 1, 0]], (phase1_batches * batch_size, 1)),
+                np.tile([[1, 1, 1]], (phase2_batches * batch_size, 1)),
+            ]
+        ).astype(np.int32)
 
         regular_result = priors.fp_growth(manual_data, min_support)
         regular_with_support = extract_itemsets_with_support(regular_result, total_transactions)
 
         # Check streaming finds same itemsets as regular
         assert streaming_itemsets == regular_with_support.keys(), (
-            f"Streaming and regular FP-Growth find different itemsets"
+            "Streaming and regular FP-Growth find different itemsets"
         )
 
         # Verify regular FP-Growth support values match expected
