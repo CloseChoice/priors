@@ -235,18 +235,21 @@ def test_endless_generator_constant_distribution():
 
     # Create a base pattern that will be repeated
     np.random.seed(42)
-    base_pattern = np.array([
-        [1, 1, 0],  # Items 0,1 appear together
-        [1, 0, 1],  # Items 0,2 appear together
-        [1, 1, 0],  # Items 0,1 appear together (repeat)
-        [0, 1, 1],  # Items 1,2 appear together
-        [1, 1, 1],  # All three items
-        [1, 1, 0],  # Items 0,1 appear together
-        [1, 0, 1],  # Items 0,2 appear together
-        [0, 1, 1],  # Items 1,2 appear together
-        [1, 1, 0],  # Items 0,1 appear together
-        [1, 1, 1],  # All three items
-    ], dtype=np.int32)
+    base_pattern = np.array(
+        [
+            [1, 1, 0],  # Items 0,1 appear together
+            [1, 0, 1],  # Items 0,2 appear together
+            [1, 1, 0],  # Items 0,1 appear together (repeat)
+            [0, 1, 1],  # Items 1,2 appear together
+            [1, 1, 1],  # All three items
+            [1, 1, 0],  # Items 0,1 appear together
+            [1, 0, 1],  # Items 0,2 appear together
+            [0, 1, 1],  # Items 1,2 appear together
+            [1, 1, 0],  # Items 0,1 appear together
+            [1, 1, 1],  # All three items
+        ],
+        dtype=np.int32,
+    )
 
     # Calculate expected support:
     # Item 0: 8/10 = 0.8
@@ -409,10 +412,12 @@ def test_shifting_distribution_calculatable():
         )
 
         # Verify against a manually constructed dataset with the same distribution
-        manual_data = np.vstack([
-            np.tile(np.array([[1, 1, 0]], dtype=np.int32), (phase1_batches * batch_size, 1)),
-            np.tile(np.array([[1, 1, 1]], dtype=np.int32), (phase2_batches * batch_size, 1)),
-        ])
+        manual_data = np.vstack(
+            [
+                np.tile(np.array([[1, 1, 0]], dtype=np.int32), (phase1_batches * batch_size, 1)),
+                np.tile(np.array([[1, 1, 1]], dtype=np.int32), (phase2_batches * batch_size, 1)),
+            ]
+        )
 
         regular_result = priors.fp_growth(manual_data, min_support)
         regular_count = count_itemsets(regular_result)
@@ -423,9 +428,9 @@ def test_shifting_distribution_calculatable():
         )
 
         print(f"✓ Shifting distribution test passed: {streaming_count} itemsets found")
-        print(f"  Phase 1 (50k rows): [1,1,0] pattern")
-        print(f"  Phase 2 (50k rows): [1,1,1] pattern")
-        print(f"  Support correctly calculated across distribution shift")
+        print("  Phase 1 (50k rows): [1,1,0] pattern")
+        print("  Phase 2 (50k rows): [1,1,1] pattern")
+        print("  Support correctly calculated across distribution shift")
 
     finally:
         priors.lazy_cleanup(pid)
