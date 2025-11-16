@@ -31,13 +31,15 @@ def assert_fpgrowth_results_equal(df1, df2, name1="Result 1", name2="Result 2", 
     assert len(df1) == len(df2), f"Count mismatch: {name1}={len(df1)}, {name2}={len(df2)}"
 
     # Convert to sets of (itemset, support) for order-independent comparison
-    set1 = {(frozenset(row["itemsets"]), round(row["support"], precision)) for _, row in df1.iterrows()}
-    set2 = {(frozenset(row["itemsets"]), round(row["support"], precision)) for _, row in df2.iterrows()}
+    set1 = {
+        (frozenset(row["itemsets"]), round(row["support"], precision)) for _, row in df1.iterrows()
+    }
+    set2 = {
+        (frozenset(row["itemsets"]), round(row["support"], precision)) for _, row in df2.iterrows()
+    }
 
     assert set1 == set2, (
-        f"Itemsets mismatch:\n"
-        f"{name1} only: {set1 - set2}\n"
-        f"{name2} only: {set2 - set1}"
+        f"Itemsets mismatch:\n{name1} only: {set1 - set2}\n{name2} only: {set2 - set1}"
     )
 
 
