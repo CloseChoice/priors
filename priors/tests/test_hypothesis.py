@@ -5,6 +5,9 @@ These tests generate random binary matrices of varying sizes and verify that our
 implementation produces the same results as mlxtend's FP-Growth implementation.
 """
 
+import sys
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -15,15 +18,12 @@ from hypothesis.extra.numpy import arrays
 import priors
 
 # Import shared utilities
-import sys
-from pathlib import Path
-
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils import fp_growth_to_dataframe
 
 # Skip all tests if mlxtend is not available
 mlxtend = pytest.importorskip("mlxtend")
-from mlxtend.frequent_patterns import fpgrowth as mlxtend_fpgrowth
+from mlxtend.frequent_patterns import fpgrowth as mlxtend_fpgrowth  # noqa: E402, I001
 
 
 # ============================================================================
@@ -365,7 +365,7 @@ def test_fp_growth_support_values(transactions, min_support):
 
         # Find matching itemset in mlxtend results
         mlxtend_row = mlxtend_result[
-            mlxtend_result["itemsets"].apply(lambda x: frozenset(x) == itemset)
+            mlxtend_result["itemsets"].apply(lambda x, i=itemset: frozenset(x) == i)
         ]
 
         assert len(mlxtend_row) == 1, f"Itemset {itemset} not found in mlxtend results"
