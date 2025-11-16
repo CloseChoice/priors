@@ -315,9 +315,6 @@ def test_endless_generator_constant_distribution():
             f"Expected 7 itemsets with min_support=0.15, got {streaming_count}"
         )
 
-        print(f"✓ Constant distribution test passed: {streaming_count} itemsets found")
-        print(f"  Processed {num_repeats * batch_size:,} rows (1M total) with constant support")
-
     finally:
         priors.lazy_cleanup(pid)
 
@@ -426,11 +423,6 @@ def test_shifting_distribution_calculatable():
             f"Streaming with shifting distribution should match regular FP-Growth! "
             f"Streaming = {streaming_count}, Regular = {regular_count}"
         )
-
-        print(f"✓ Shifting distribution test passed: {streaming_count} itemsets found")
-        print("  Phase 1 (50k rows): [1,1,0] pattern")
-        print("  Phase 2 (50k rows): [1,1,1] pattern")
-        print("  Support correctly calculated across distribution shift")
 
     finally:
         priors.lazy_cleanup(pid)
