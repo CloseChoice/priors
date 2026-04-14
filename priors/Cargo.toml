@@ -24,7 +24,7 @@ once_cell = "1.19"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
-rand = "0.8"
+rand = "0.9"
 ndarray = "0.16"
 
 # Optimization settings for release builds
